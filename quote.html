@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avis Basket Trani – Quote Mensili</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="logo-ball">🏀</div>
+    <div class="header-titles">
+      <h1>Avis Basket Trani</h1>
+      <p>Quote Mensili Atleti</p>
+    </div>
+    <button class="btn-add-top" onclick="openModal()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>Aggiungi Pagamento</span>
+    </button>
+  </div>
+</header>
+
+<!-- NAV TRA LE PAGINE -->
+<nav class="page-nav">
+  <a href="index.html" class="nav-link">🗂️ Anagrafica</a>
+  <a href="quote.html" class="nav-link active">📊 Quote Mensili</a>
+  <a href="preiscrizioni.html" class="nav-link">📝 Pre-Iscrizioni</a>
+</nav>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="searchInput" placeholder="Cerca atleta…" oninput="renderTable()">
+  </div>
+  <select class="filter-select" id="filterGruppo" onchange="renderTable()">
+    <option value="">Tutti i gruppi</option>
+    <option value="Pulcini">Pulcini</option>
+    <option value="Scoiattoli">Scoiattoli</option>
+    <option value="Aquilotti">Aquilotti</option>
+    <option value="Esordienti">Esordienti</option>
+    <option value="U13">U13</option>
+    <option value="U14">U14</option>
+    <option value="U15">U15</option>
+  </select>
+  <select class="filter-select" id="filterTipo" onchange="renderTable()">
+    <option value="">Tutti i pagamenti</option>
+    <option value="Contanti">Contanti</option>
+    <option value="Bonifico">Bonifico</option>
+    <option value="Gratuito">Gratuito</option>
+  </select>
+  <button class="btn-export" onclick="exportCSV()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Esporta CSV
+  </button>
+</div>
+
+<!-- TABLE -->
+<div class="table-section">
+  <div class="table-card">
+    <div class="table-header-bar">
+      <h2>Quote Mensili 2026-27</h2>
+      <span class="record-count" id="recordCount">0 atleti</span>
+    </div>
+    <div class="table-responsive">
+      <table id="mainTable" class="table-quote">
+        <thead>
+          <tr>
+            <th class="th-name" onclick="sortBy('cognome')">Atleta <span class="sort-arrow">↕</span></th>
+            <th class="th-gruppo" onclick="sortBy('gruppo')">Gruppo <span class="sort-arrow">↕</span></th>
+            <th>Frequenza</th>
+            <th>Periodo</th>
+            <th>Tipo</th>
+            <th>Data Pagamento</th>
+            <th class="th-iscr" onclick="sortBy('iscrizione')">Iscrizione <small style="font-weight:400;text-transform:none">€30</small> <span class="sort-arrow">↕</span></th>
+            <th class="th-mese">Set</th>
+            <th class="th-mese">Ott</th>
+            <th class="th-mese">Nov</th>
+            <th class="th-mese">Dic</th>
+            <th class="th-mese">Gen</th>
+            <th class="th-mese">Feb</th>
+            <th class="th-mese">Mar</th>
+            <th class="th-mese">Apr</th>
+            <th class="th-mese">Mag</th>
+            <th class="th-tot" onclick="sortBy('totale')">Totale <span class="sort-arrow">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+        <tfoot id="tableFoot"></tfoot>
+      </table>
+    </div>
+    <div id="emptyState" class="empty-state" style="display:none">
+      <div class="empty-icon">🏀</div>
+      <p><strong>Nessun atleta trovato</strong></p>
+      <p style="margin-top:6px;font-size:.85rem">Aggiungi atleti dalla pagina Anagrafica.</p>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AGGIUNGI PAGAMENTO -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="ball-sm">🏀</div>
+      <div>
+        <h2>Aggiungi Pagamento</h2>
+        <p>Seleziona atleta, frequenza e data</p>
+      </div>
+      <button class="btn-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="payForm" onsubmit="savePayment(event)">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Nome Atleta</label>
+            <select id="f_nomeRagazzo" onchange="updatePreview()">
+              <option value="">Seleziona atleta…</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Frequenza Pagamento</label>
+            <select id="f_frequenza" onchange="updatePreview()">
+              <option value="">Seleziona…</option>
+              <option value="Lezione">Lezione — €5</option>
+              <option value="Metà mese">Metà mese — €20</option>
+              <option value="Mensile">Mensile — €35</option>
+              <option value="Stagionale">Stagionale — €270</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Data Pagamento</label>
+            <input type="date" id="f_dataPagamento" onchange="updatePreview()">
+          </div>
+          <div class="form-group" id="meseRifWrap" style="display:none">
+            <label>Mese di Riferimento</label>
+            <select id="f_meseRiferimento" onchange="updatePreview()">
+              <option value="0">Settembre</option>
+              <option value="1">Ottobre</option>
+              <option value="2">Novembre</option>
+              <option value="3">Dicembre</option>
+              <option value="4">Gennaio</option>
+              <option value="5">Febbraio</option>
+              <option value="6">Marzo</option>
+              <option value="7">Aprile</option>
+              <option value="8">Maggio</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Tipo di Pagamento</label>
+            <select id="f_tipoPagamento" onchange="updatePreview()">
+              <option value="">Seleziona…</option>
+              <option value="Contanti">Contanti</option>
+              <option value="Bonifico">Bonifico</option>
+              <option value="Gratuito">Gratuito — €0</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Iscrizione</label>
+            <label class="toggle-wrap">
+              <input type="checkbox" id="f_iscrizione">
+              <span class="toggle-track">
+                <span class="toggle-thumb"></span>
+              </span>
+              <span class="toggle-text-label">Iscrizione pagata (€30)</span>
+            </label>
+          </div>
+          <div class="form-group full" id="previewWrap" style="display:none">
+            <label>Distribuzione mensile</label>
+            <div id="mesiPreview" class="mesi-preview"></div>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Annulla</button>
+      <button class="btn-save" onclick="savePayment(event)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Salva Pagamento
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PAGAMENTI ATLETA -->
+<div class="overlay" id="overlayPagamenti">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="ball-sm">📋</div>
+      <div>
+        <h2 id="mpNome">Pagamenti</h2>
+        <p id="mpCount">—</p>
+      </div>
+      <button class="btn-close" onclick="closeAthleteModal()">✕</button>
+    </div>
+    <div class="modal-body" id="mpBody"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeAthleteModal()">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="quote.js"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="firebase-sync.js"></script>
+
+</body>
+</html>

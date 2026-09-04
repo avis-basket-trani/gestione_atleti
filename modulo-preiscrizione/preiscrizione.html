@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modulo Pre-Iscrizione — Avis Basket Trani Minibasket</title>
+<meta name="description" content="Modulo di pre-iscrizione al Centro Minibasket A.S.D. Avis Basket Trani">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p style="color:var(--black);font-weight:600;">Invio in corso…</p>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="logo-ball">🏀</div>
+    <div class="header-titles">
+      <h1>Avis Basket Trani</h1>
+      <p>Modulo di Pre-Iscrizione — Centro Minibasket</p>
+    </div>
+  </div>
+</header>
+
+<!-- PROGRESS STEPS -->
+<div class="steps-bar">
+  <div class="steps-bar-inner">
+    <div class="progress-line" id="progressLine"></div>
+    <div class="step-dot active" id="dot1">
+      <div class="dot">1</div>
+      <span class="dot-label">Minore</span>
+    </div>
+    <div class="step-dot" id="dot2">
+      <div class="dot">2</div>
+      <span class="dot-label">Genitore</span>
+    </div>
+    <div class="step-dot" id="dot3">
+      <div class="dot">3</div>
+      <span class="dot-label">Consensi</span>
+    </div>
+  </div>
+</div>
+
+<div class="main-container">
+
+  <div class="info-note">
+    <strong>Nota:</strong> compila il modulo con i dati del/la minore da iscrivere e del genitore/tutore, per il Centro Minibasket A.S.D. Avis Basket Trani (cod. FIP 054580).
+  </div>
+
+  <form id="preiscrizioneForm" onsubmit="return false;">
+
+    <!-- ===== STEP 1: DATI MINORE ===== -->
+    <div class="step-section active" id="step1">
+      <div class="form-card">
+        <div class="form-card-title"><span class="badge-num">1</span> Dati del/della Minore</div>
+        <div class="row">
+          <div class="col-6 form-group">
+            <label class="form-label">Cognome</label>
+            <input type="text" class="form-control" id="mCognome" placeholder="Rossi" required>
+          </div>
+          <div class="col-6 form-group">
+            <label class="form-label">Nome</label>
+            <input type="text" class="form-control" id="mNome" placeholder="Luca" required>
+          </div>
+          <div class="col-6 form-group">
+            <label class="form-label">Nato/a a</label>
+            <input type="text" class="form-control" id="mLuogoNascita" placeholder="Trani" required>
+          </div>
+          <div class="col-3 form-group">
+            <label class="form-label">Prov.</label>
+            <input type="text" class="form-control" id="mProvNascita" placeholder="BT" maxlength="2" style="text-transform:uppercase" required>
+          </div>
+          <div class="col-3 form-group">
+            <label class="form-label">Data di nascita</label>
+            <input type="date" class="form-control" id="mDataNascita" required>
+          </div>
+          <div class="col-6 form-group">
+            <label class="form-label">Codice Fiscale</label>
+            <input type="text" class="form-control" id="mCF" placeholder="RSSLCU15A01L328Z" maxlength="16" style="text-transform:uppercase" required>
+          </div>
+          <div class="col-6 form-group">
+            <label class="form-label">Nazionalità</label>
+            <input type="text" class="form-control" id="mNazionalita" placeholder="Italiana" required>
+          </div>
+          <div class="col-7 form-group">
+            <label class="form-label">Residente in Via</label>
+            <input type="text" class="form-control" id="mVia" placeholder="Via Roma, 10" required>
+          </div>
+          <div class="col-3 form-group">
+            <label class="form-label">Comune</label>
+            <input type="text" class="form-control" id="mComune" placeholder="Trani" required>
+          </div>
+          <div class="col-2 form-group">
+            <label class="form-label">Prov.</label>
+            <input type="text" class="form-control" id="mProvResidenza" placeholder="BT" maxlength="2" style="text-transform:uppercase" required>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button type="button" class="btn-next" onclick="if (validateStep(1)) goToStep(2)">
+          Avanti: Dati del Genitore <span>&#8594;</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== STEP 2: DATI GENITORE ===== -->
+    <div class="step-section" id="step2">
+      <div class="form-card">
+        <div class="form-card-title"><span class="badge-num">2</span> Dati del Genitore/Tutore</div>
+        <div class="row">
+          <div class="col-6 form-group">
+            <label class="form-label">Cognome</label>
+            <input type="text" class="form-control" id="gCognome" placeholder="Rossi" autocomplete="family-name" required>
+          </div>
+          <div class="col-6 form-group">
+            <label class="form-label">Nome</label>
+            <input type="text" class="form-control" id="gNome" placeholder="Mario" autocomplete="given-name" required>
+          </div>
+          <div class="col-6 form-group">
+            <label class="form-label">Codice Fiscale</label>
+            <input type="text" class="form-control" id="gCF" placeholder="RSSMRA80A01L328Z" maxlength="16" style="text-transform:uppercase" required>
+          </div>
+          <div class="col-6 form-group">
+            <label class="form-label">Telefono</label>
+            <input type="tel" class="form-control" id="gTel" placeholder="348 1234567" autocomplete="tel" required>
+          </div>
+          <div class="col-12 form-group">
+            <label class="form-label">E-mail</label>
+            <input type="email" class="form-control" id="gEmail" placeholder="mario.rossi@email.it" autocomplete="email" required>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button type="button" class="btn-prev" onclick="goToStep(1)">
+          <span>&#8592;</span> Indietro
+        </button>
+        <button type="button" class="btn-next" onclick="if (validateStep(2)) goToStep(3)">
+          Avanti: Iscrizione e Consensi <span>&#8594;</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== STEP 3: ISCRIZIONE + CONSENSI ===== -->
+    <div class="step-section" id="step3">
+
+      <div class="form-card">
+        <div class="form-card-title"><span class="badge-num">3</span> Iscrizione</div>
+        <div class="row">
+          <div class="col-6 form-group">
+            <label class="form-label">Stagione sportiva</label>
+            <input type="text" class="form-control" id="stagioneSportiva" value="2026 – 2027" readonly style="background:#F1F5F9">
+          </div>
+          <div class="col-6 form-group">
+            <label class="form-label">Centro Minibasket</label>
+            <input type="text" class="form-control" id="centroMinibasket" value="A.S.D. AVIS BASKET TRANI — cod. FIP 054580" readonly style="background:#F1F5F9">
+          </div>
+          <div class="col-6 form-group">
+            <label class="form-label">Data compilazione</label>
+            <input type="date" class="form-control" id="dataCompilazione" required>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== CONSENSO FOTO/VIDEO ===== -->
+      <div class="form-card">
+        <div class="form-card-title">Autorizzazione pubblicazione foto/video</div>
+        <div class="privacy-box">
+          <p>Si autorizza a titolo gratuito, senza limiti di tempo, anche ai sensi degli artt. 10 e 320 cod. civ. e degli artt. 96 e 97 legge 22.4.1941, n. 633, legge sul diritto d'autore, l'associazione sportiva dilettantistica AVIS BASKET TRANI A.S.D., con sede in Trani, via Parini n. 4, alla pubblicazione e/o diffusione in qualsiasi forma fotografica/video, prodotta durante lo svolgimento di attività ludico-ricreative e di quelle sportive.</p>
+          <p>Si autorizza, inoltre, la conservazione delle foto e dei video stessi negli archivi informatici dell'Associazione Sportiva Dilettantistica AVIS BASKET TRANI. La presente liberatoria/autorizzazione potrà essere revocata in ogni tempo con raccomandata a/r da inviare all'Associazione Sportiva Dilettantistica AVIS BASKET TRANI A.S.D., con sede in Trani, via Parini n. 4. Responsabile del trattamento dei dati è la Sig.ra Rosa Ferrara – Presidente – dell'Associazione Sportiva Dilettantistica AVIS BASKET TRANI, con sede in Trani, via Parini n. 4.</p>
+        </div>
+        <div class="consent-row">
+          <button type="button" class="consent-btn yes" id="consensoFotoSi" onclick="selectConsent('foto','si')">Presto il consenso</button>
+          <button type="button" class="consent-btn no" id="consensoFotoNo" onclick="selectConsent('foto','no')">Nego il consenso</button>
+        </div>
+      </div>
+
+      <!-- ===== INFORMATIVA PRIVACY ===== -->
+      <div class="form-card">
+        <div class="form-card-title">Informativa Privacy (art. 13 Reg. UE 2016/679)</div>
+        <div class="privacy-box">
+          <p>Si informa che, in conformità a quanto previsto dall'art. 13 del Regolamento UE 2016/679 ("GDPR"), i dati personali del minore e dei genitori conferiti con la presente liberatoria saranno trattati con modalità cartacee e telematiche nel rispetto della vigente normativa e dei principi di correttezza, liceità, trasparenza e riservatezza.</p>
+          <p>In tale ottica i dati forniti, ivi incluso il ritratto contenuto nei video/fotografie suindicati, verranno pubblicati, previo consenso libero e facoltativo dei genitori del minore, sui canali social dell'Associazione ed utilizzati esclusivamente per le finalità strettamente connesse e strumentali alle attività dell'Associazione Sportiva. Il mancato conferimento dei predetti dati determinerà l'impossibilità per l'Associazione Sportiva di pubblicarli sul sito della stessa senza, tuttavia, comportare altri pregiudizi per l'interessato.</p>
+          <p>La base giuridica del trattamento è fondata sullo specifico consenso fornito dai genitori del minore. I dati personali saranno conservati per il periodo di tempo necessario per il conseguimento delle finalità per le quali sono raccolti e trattati. Titolare del trattamento dei dati personali sarà l'Associazione Sportiva Dilettantistica AVIS BASKET TRANI, con sede in Trani, via Parini n. 4. Con la presente informativa i genitori del minore dichiarano di essere stati informati dei loro diritti di cui agli art. 15, 16, 17 e 18 del GDPR nonché del loro diritto di revocare il consenso in qualsiasi momento e proporre reclamo al Garante per la protezione dei dati.</p>
+          <p>I genitori o chi esercita la responsabilità genitoriale prendono atto che non è stato possibile sottoscrivere questa domanda in quanto elaborata digitalmente.</p>
+        </div>
+        <div class="consent-row">
+          <button type="button" class="consent-btn yes" id="consensoPrivacySi" onclick="selectConsent('privacy','si')">Presto il consenso</button>
+          <button type="button" class="consent-btn no" id="consensoPrivacyNo" onclick="selectConsent('privacy','no')">Nego il consenso</button>
+        </div>
+      </div>
+
+      <div class="nav-buttons">
+        <button type="button" class="btn-prev" onclick="goToStep(2)">
+          <span>&#8592;</span> Indietro
+        </button>
+      </div>
+
+      <div class="submit-wrap">
+        <button type="button" class="btn-submit" id="submitBtn" onclick="submitForm()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Invia Pre-Iscrizione
+        </button>
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  A.S.D. Avis Basket Trani · Via Parini, 4 · Trani (BT) · cod. FIP 054580
+</footer>
+
+<!-- POPUP CONFERMA -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup-card">
+    <div class="popup-check">&#10003;</div>
+    <h2 class="popup-title">Pre-iscrizione inviata!</h2>
+    <p class="popup-text">La domanda per <strong id="popupName"></strong> è stata ricevuta correttamente.</p>
+    <p class="popup-subtext">La società ti contatterà per i prossimi passi dell'iscrizione.</p>
+    <button class="popup-btn" onclick="closePopup()">Perfetto!</button>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

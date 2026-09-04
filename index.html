@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Avis Basket Trani – Anagrafica Atleti</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="logo-ball">🏀</div>
+    <div class="header-titles">
+      <h1>Avis Basket Trani</h1>
+      <p>Anagrafica Atleti</p>
+    </div>
+    <!-- btn-add-top temporaneamente disabilitato
+    <button class="btn-add-top" onclick="openModal()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>Nuovo Atleta</span>
+    </button>
+    -->
+  </div>
+</header>
+
+<!-- NAV TRA LE PAGINE -->
+<nav class="page-nav">
+  <a href="index.html" class="nav-link active">🗂️ Anagrafica</a>
+  <a href="quote.html" class="nav-link">📊 Quote Mensili</a>
+  <a href="preiscrizioni.html" class="nav-link">📝 Pre-Iscrizioni</a>
+</nav>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="searchInput" placeholder="Cerca per nome, CF, comune…" oninput="renderTable()">
+  </div>
+  <select class="filter-select" id="filterGruppo" onchange="renderTable()">
+    <option value="">Tutti i gruppi</option>
+    <option value="Pulcini">Pulcini</option>
+    <option value="Scoiattoli">Scoiattoli</option>
+    <option value="Aquilotti">Aquilotti</option>
+    <option value="Esordienti">Esordienti</option>
+    <option value="U13">U13</option>
+    <option value="U14">U14</option>
+    <option value="U15">U15</option>
+  </select>
+  <select class="filter-select" id="filterAnno" onchange="renderTable()">
+    <option value="">Tutti gli anni</option>
+  </select>
+  <button class="btn-export" id="btnCertScadenza" onclick="notificaCertificatiScadenza()" title="Controlla i certificati medici in scadenza entro 60 giorni">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+    Certificati in scadenza
+  </button>
+  <button class="btn-export" onclick="exportCSV()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Esporta CSV
+  </button>
+</div>
+
+<!-- TABLE -->
+<div class="table-section">
+  <div class="table-card">
+    <div class="table-header-bar">
+      <h2>Anagrafica</h2>
+      <span class="record-count" id="recordCount">0 record</span>
+    </div>
+    <div class="table-responsive">
+      <table id="mainTable">
+        <thead>
+          <tr>
+            <th onclick="sortBy('cognome')">Cognome <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('nome')">Nome <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('gruppo')">Gruppo <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('anno')">Anno <span class="sort-arrow">↕</span></th>
+            <th>Luogo Nascita</th>
+            <th>Indirizzo</th>
+            <th>Codice Fiscale</th>
+            <th onclick="sortBy('certScadenza')">Certificato Medico <span class="sort-arrow">↕</span></th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div id="emptyState" class="empty-state" style="display:none">
+      <div class="empty-icon">🏀</div>
+      <p><strong>Nessun atleta trovato</strong></p>
+      <p style="margin-top:6px;font-size:.85rem">Gli atleti arrivano automaticamente dalle pre-iscrizioni oppure aggiungili manualmente.</p>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AGGIUNGI/MODIFICA ATLETA -->
+<div class="overlay" id="overlay">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="ball-sm">🏀</div>
+      <div>
+        <h2 id="modalTitle">Nuovo Atleta</h2>
+        <p id="modalSubtitle">Compila i dati anagrafici dell'atleta</p>
+      </div>
+      <button class="btn-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-tabs">
+      <button type="button" class="modal-tab-btn active" data-tab="atleta" onclick="switchModalTab('atleta')">👤 Atleta</button>
+      <button type="button" class="modal-tab-btn" data-tab="genitore" onclick="switchModalTab('genitore')">👪 Genitore</button>
+      <button type="button" class="modal-tab-btn" data-tab="cert" onclick="switchModalTab('cert')">🩺 Certificato</button>
+    </div>
+    <div class="modal-body">
+      <form id="payForm" onsubmit="saveRecord(event)">
+
+        <div class="modal-tab-panel active" data-tab="atleta">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Cognome</label>
+              <input type="text" id="f_cognome" placeholder="Es. Rossi">
+            </div>
+            <div class="form-group">
+              <label>Nome</label>
+              <input type="text" id="f_nome" placeholder="Es. Mario">
+            </div>
+            <div class="form-group">
+              <label>Anno di nascita</label>
+              <input type="number" id="f_anno" placeholder="Es. 2015" min="2000" max="2099" oninput="suggestGruppo()">
+            </div>
+            <div class="form-group">
+              <label>Gruppo</label>
+              <select id="f_gruppo">
+                <option value="">Seleziona…</option>
+                <option value="Pulcini">Pulcini</option>
+                <option value="Scoiattoli">Scoiattoli</option>
+                <option value="Aquilotti">Aquilotti</option>
+                <option value="Esordienti">Esordienti</option>
+                <option value="U13">U13</option>
+                <option value="U14">U14</option>
+                <option value="U15">U15</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Data di nascita</label>
+              <input type="date" id="f_dataNascita">
+            </div>
+            <div class="form-group">
+              <label>Luogo di nascita</label>
+              <input type="text" id="f_luogoNascita" placeholder="Es. Trani">
+            </div>
+            <div class="form-group">
+              <label>Provincia di nascita</label>
+              <input type="text" id="f_provNascita" placeholder="Es. BT" maxlength="2" style="text-transform:uppercase">
+            </div>
+            <div class="form-group">
+              <label>Codice Fiscale</label>
+              <input type="text" id="f_cf" placeholder="Es. RSSMRA15A01L328Z" maxlength="16" style="text-transform:uppercase">
+            </div>
+            <div class="form-group">
+              <label>Nazionalità</label>
+              <input type="text" id="f_nazionalita" placeholder="Es. Italiana">
+            </div>
+            <div class="form-group full">
+              <label>Indirizzo di residenza</label>
+              <input type="text" id="f_via" placeholder="Es. Via Roma, 10">
+            </div>
+            <div class="form-group">
+              <label>Comune di residenza</label>
+              <input type="text" id="f_comune" placeholder="Es. Trani">
+            </div>
+            <div class="form-group">
+              <label>Provincia residenza</label>
+              <input type="text" id="f_provResidenza" placeholder="Es. BT" maxlength="2" style="text-transform:uppercase">
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-tab-panel" data-tab="genitore">
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>Nome e Cognome Genitore</label>
+              <input type="text" id="f_nomeGenitore" placeholder="Es. Mario Rossi">
+            </div>
+            <div class="form-group">
+              <label>Codice Fiscale Genitore</label>
+              <input type="text" id="f_cfGenitore" placeholder="Es. RSSMRA80A01L328Z" maxlength="16" style="text-transform:uppercase">
+            </div>
+            <div class="form-group">
+              <label>Telefono Genitore</label>
+              <input type="tel" id="f_telefono" placeholder="Es. 348 1234567">
+            </div>
+            <div class="form-group full">
+              <label>Email Genitore</label>
+              <input type="email" id="f_emailGenitore" placeholder="Es. mario.rossi@email.it">
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-tab-panel" data-tab="cert">
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>Certificato medico — data di scadenza</label>
+              <input type="date" id="f_certScadenza">
+            </div>
+            <div class="form-group full" style="border-top:1px solid #E2E8F0;padding-top:16px;margin-top:4px">
+              <label style="font-size:.95rem;font-weight:700;color:var(--black)">Consensi dalla pre-iscrizione</label>
+            </div>
+            <div class="form-group">
+              <label>Consenso Foto/Video</label>
+              <span id="f_consensoFotoDisplay">—</span>
+            </div>
+            <div class="form-group">
+              <label>Consenso Privacy</label>
+              <span id="f_consensoPrivacyDisplay">—</span>
+            </div>
+            <div class="form-group full">
+              <label>Data compilazione modulo pre-iscrizione</label>
+              <span id="f_dataCompilazioneDisplay">—</span>
+            </div>
+          </div>
+        </div>
+
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Annulla</button>
+      <button class="btn-save" onclick="saveRecord(event)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span id="btnSaveLabel">Salva Atleta</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">🗑️</div>
+    <h3>Elimina atleta?</h3>
+    <p>Questa azione non è reversibile. L'atleta verrà rimosso definitivamente dall'anagrafica.</p>
+    <div class="confirm-actions">
+      <button class="btn-confirm-cancel" onclick="closeConfirm()">Annulla</button>
+      <button class="btn-confirm-ok" onclick="confirmDelete()">Elimina</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="app.js"></script>
+
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="firebase-sync.js"></script>
+
+</body>
+</html>
