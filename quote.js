@@ -47,6 +47,7 @@ function buildAthleteData() {
       id:              r.id,
       nomeRagazzo:     r.nomeRagazzo,
       cognome:         r.cognome || '',
+      nome:            r.nome || '',
       anno:            r.anno || '',
       gruppo:          r.gruppo || '',
       iscrizione:      !!r.iscrizione,
@@ -229,7 +230,8 @@ function renderTable() {
   const colTotals   = blankMesi();
   let totIscrizioni = 0, totGrand = 0;
 
-  tbody.innerHTML = athletes.map(({ id, nomeRagazzo, gruppo, iscrizione, mesi, totale, hasPayments, ultimoPagamento }) => {
+  tbody.innerHTML = athletes.map(({ id, nomeRagazzo, cognome, nome, gruppo, iscrizione, mesi, totale, hasPayments, ultimoPagamento }) => {
+    const etichetta = (cognome || nome) ? `${cognome} ${nome}`.trim() : nomeRagazzo;
     const iscAmt = iscrizione ? ISCRIZIONE_QUOTA : 0;
     totIscrizioni += iscAmt;
     MESI_KEYS.forEach(k => colTotals[k] += (mesi[k] || 0));
@@ -248,7 +250,7 @@ function renderTable() {
       : '<span class="cell-empty">—</span>';
     return `<tr>
       <td class="col-name" data-label="Atleta">
-        <span class="player-name">${escHtml(nomeRagazzo)}</span>
+        <span class="player-name">${escHtml(etichetta)}</span>
         ${hasPayments ? `<button class="btn-edit-athlete" onclick="openAthleteModal('${escHtml(id)}')" title="Modifica pagamenti">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
