@@ -116,9 +116,12 @@
         <div class="form-grid">
           <div class="form-group full">
             <label>Nome Atleta</label>
-            <select id="f_nomeRagazzo" onchange="updatePreview()">
-              <option value="">Seleziona atleta…</option>
-            </select>
+            <div class="athlete-search-wrap">
+              <input type="text" id="f_atletaSearch" placeholder="Scrivi il cognome dell'atleta…" autocomplete="off"
+                     oninput="filterAthleteSearch()" onfocus="filterAthleteSearch()">
+              <input type="hidden" id="f_nomeRagazzo" value="">
+              <div id="athleteSearchResults" class="athlete-search-results"></div>
+            </div>
           </div>
           <div class="form-group">
             <label>Frequenza Pagamento</label>

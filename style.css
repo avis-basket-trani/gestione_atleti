@@ -383,6 +383,47 @@ tr.row-no-preiscrizione .player-name { color: var(--red); }
   background: var(--white);
 }
 
+/* ── RICERCA ATLETA (popup Aggiungi Pagamento, senza tendina) ── */
+.athlete-search-wrap { position: relative; }
+.athlete-search-wrap input[type="text"] {
+  width: 100%;
+  padding: 10px 13px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  outline: none;
+  background: #F8FAFC;
+  transition: border .2s, background .2s;
+}
+.athlete-search-wrap input[type="text"]:focus { border-color: var(--yellow); background: var(--white); }
+.athlete-search-results {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--white);
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  z-index: 20;
+}
+.athlete-search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 13px;
+  cursor: pointer;
+  font-size: 0.87rem;
+  border-bottom: 1px solid #F1F5F9;
+}
+.athlete-search-item:last-child { border-bottom: none; }
+.athlete-search-item:hover { background: var(--yellow-light); }
+.athlete-search-item small { color: var(--slate); font-size: 0.75rem; flex-shrink: 0; }
+.athlete-search-empty { padding: 12px 13px; font-size: 0.85rem; color: var(--slate); }
+
 .modal-footer {
   padding: 0 24px 24px;
   display: flex;
@@ -686,7 +727,6 @@ tfoot .footer-row td.cell-totale { text-align: right; }
   .btn-export { width: 100%; justify-content: center; padding: 12px 14px; }
   .table-section { padding: 0 12px; margin: 14px auto 32px; }
   .table-header-bar { padding: 12px 14px; }
-  .record-count { display: none; }
   .form-grid { grid-template-columns: 1fr; }
   .form-group.full { grid-column: 1; }
 
@@ -762,14 +802,42 @@ tfoot .footer-row td.cell-totale { text-align: right; }
   /* Totale evidenziato (quote) */
   tbody td[data-label="Totale"] { background: var(--yellow-light); font-weight: 700; border-bottom: none; }
 
-  /* Footer totali (quote): card scura */
-  tfoot .footer-row { display: block; background: var(--black-mid); border-radius: 12px; margin-bottom: 14px; overflow: hidden; border: none; }
-  tfoot .footer-row td { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; font-size: 13px; font-weight: 700; color: var(--white); border-bottom: 1px solid rgba(255,255,255,.08); min-height: 40px; }
-  tfoot .footer-row td::before { content: attr(data-label); font-weight: 600; font-size: 11px; color: var(--slate-light); text-transform: uppercase; letter-spacing: .4px; min-width: 100px; flex-shrink: 0; }
-  tfoot .footer-row td:first-child { background: var(--black); color: var(--yellow); font-size: 14px; border-bottom: none; padding: 13px 14px; }
+  /* Footer totali (quote): card scura a griglia compatta.
+     Le celle vuote (Gruppo/Frequenza/Periodo/Tipo/Data Pagamento, presenti
+     solo per allineare le colonne della tabella desktop) vengono nascoste:
+     senza questa regola comparivano come righe vuote nella card nera. */
+  tfoot .footer-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: rgba(255,255,255,.08);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    border: none;
+  }
+  tfoot .footer-row td:not([data-label]):not(:first-child) { display: none; }
+  tfoot .footer-row td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 3px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--white);
+    background: var(--black-mid);
+    min-height: 50px;
+  }
+  tfoot .footer-row td::before {
+    content: attr(data-label);
+    font-weight: 600; font-size: 10px; color: var(--slate-light);
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+  tfoot .footer-row td:first-child { grid-column: 1 / -1; background: var(--black); color: var(--yellow); font-size: 14px; }
   tfoot .footer-row td:first-child::before { display: none; }
-  tfoot .footer-row td:last-child { border-bottom: none; }
-  tfoot .footer-row td.cell-totale { color: var(--yellow); font-size: 15px; background: rgba(234,179,8,.12); }
+  tfoot .footer-row td.cell-totale { grid-column: 1 / -1; color: var(--yellow); font-size: 16px; background: rgba(234,179,8,.15); }
 
   /* Modal: bottom sheet */
   .overlay { align-items: flex-end; padding: 0; }

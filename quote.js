@@ -287,24 +287,23 @@ function renderTable() {
 }
 
 /* ─── MODAL AGGIUNGI PAGAMENTO ─── */
+let _athleteSearchList = [];
+let _athleteSearchSelectedLabel = '';
+
 function openModal() {
   const main = loadMain();
-  const athletes = [];
+  _athleteSearchList = [];
   for (const r of main) {
     if (!r.nomeRagazzo || r.athleteId) continue; // solo record-identità
-    athletes.push({ id: r.id, nomeRagazzo: r.nomeRagazzo, cognome: r.cognome || '', nome: r.nome || '', anno: r.anno || '', nomeGenitore: r.nomeGenitore || '' });
+    _athleteSearchList.push({ id: r.id, nomeRagazzo: r.nomeRagazzo, cognome: r.cognome || '', nome: r.nome || '', anno: r.anno || '', nomeGenitore: r.nomeGenitore || '' });
   }
-  athletes.sort((a, b) => (a.cognome || a.nomeRagazzo).localeCompare(b.cognome || b.nomeRagazzo, 'it') || a.nomeRagazzo.localeCompare(b.nomeRagazzo, 'it'));
-
-  const sel = document.getElementById('f_nomeRagazzo');
-  sel.innerHTML = '<option value="">Seleziona atleta…</option>' +
-    athletes.map(a => {
-      const etichetta = (a.cognome || a.nome) ? `${a.cognome} ${a.nome}`.trim() : a.nomeRagazzo;
-      const dettagli = [a.anno ? `${a.anno}` : '', a.nomeGenitore || ''].filter(Boolean).join(' – ');
-      return `<option value="${escHtml(a.id)}">${escHtml(etichetta)}${dettagli ? ' (' + escHtml(dettagli) + ')' : ''}</option>`;
-    }).join('');
+  _athleteSearchList.sort((a, b) => (a.cognome || a.nomeRagazzo).localeCompare(b.cognome || b.nomeRagazzo, 'it') || a.nomeRagazzo.localeCompare(b.nomeRagazzo, 'it'));
 
   document.getElementById('payForm').reset();
+  document.getElementById('f_atletaSearch').value = '';
+  document.getElementById('f_nomeRagazzo').value = '';
+  _athleteSearchSelectedLabel = '';
+  document.getElementById('athleteSearchResults').style.display = 'none';
   document.getElementById('f_dataPagamento').value = new Date().toISOString().slice(0, 10);
   document.getElementById('previewWrap').style.display  = 'none';
   document.getElementById('meseRifWrap').style.display  = 'none';
@@ -313,12 +312,70 @@ function openModal() {
   const schoolIdx = MESI_JS.indexOf(todayM);
   document.getElementById('f_meseRiferimento').value = schoolIdx >= 0 ? schoolIdx : 0;
   document.getElementById('overlay').classList.add('open');
-  setTimeout(() => document.getElementById('f_nomeRagazzo').focus(), 100);
+  setTimeout(() => document.getElementById('f_atletaSearch').focus(), 100);
 }
 
 function closeModal() {
   document.getElementById('overlay').classList.remove('open');
+  document.getElementById('athleteSearchResults').style.display = 'none';
 }
+
+/* ─── RICERCA ATLETA (senza tendina) ───
+   Si digitano le prime lettere del cognome (o nome) e appare l'elenco dei
+   corrispondenti, come nella ricerca già usata nelle altre pagine. Se il
+   testo digitato non corrisponde più alla selezione fatta, la selezione
+   viene annullata per evitare di salvare un atleta diverso da quello scritto. */
+function filterAthleteSearch() {
+  const input   = document.getElementById('f_atletaSearch');
+  const results = document.getElementById('athleteSearchResults');
+  const q       = input.value.trim().toLowerCase();
+
+  if (input.value !== _athleteSearchSelectedLabel) {
+    document.getElementById('f_nomeRagazzo').value = '';
+  }
+
+  if (!q) { results.innerHTML = ''; results.style.display = 'none'; return; }
+
+  const matches = _athleteSearchList.filter(a =>
+    a.cognome.toLowerCase().includes(q) ||
+    a.nome.toLowerCase().includes(q) ||
+    a.nomeRagazzo.toLowerCase().includes(q)
+  ).slice(0, 30);
+
+  if (!matches.length) {
+    results.innerHTML = '<div class="athlete-search-empty">Nessun atleta trovato</div>';
+    results.style.display = 'block';
+    return;
+  }
+
+  results.innerHTML = matches.map(a => {
+    const etichetta = (a.cognome || a.nome) ? `${a.cognome} ${a.nome}`.trim() : a.nomeRagazzo;
+    const dettagli  = [a.anno ? `${a.anno}` : '', a.nomeGenitore || ''].filter(Boolean).join(' – ');
+    return `<div class="athlete-search-item" onclick="selectAthleteSearch('${escHtml(a.id)}')">
+      <span>${escHtml(etichetta)}</span>
+      ${dettagli ? `<small>${escHtml(dettagli)}</small>` : ''}
+    </div>`;
+  }).join('');
+  results.style.display = 'block';
+}
+
+function selectAthleteSearch(id) {
+  const a = _athleteSearchList.find(x => x.id === id);
+  if (!a) return;
+  const etichetta = (a.cognome || a.nome) ? `${a.cognome} ${a.nome}`.trim() : a.nomeRagazzo;
+  document.getElementById('f_nomeRagazzo').value   = id;
+  document.getElementById('f_atletaSearch').value  = etichetta;
+  _athleteSearchSelectedLabel = etichetta;
+  document.getElementById('athleteSearchResults').style.display = 'none';
+  updatePreview();
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.athlete-search-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('athleteSearchResults').style.display = 'none';
+  }
+});
 
 /* ─── PREVIEW ─── */
 function updatePreview() {
@@ -367,7 +424,7 @@ function savePayment(e) {
   const tipo      = document.getElementById('f_tipoPagamento').value;
   const iscrizioneChecked = document.getElementById('f_iscrizione').checked;
 
-  if (!athleteId) { toast('Seleziona un atleta', 'error'); return; }
+  if (!athleteId) { toast('Seleziona un atleta dall\'elenco di ricerca', 'error'); return; }
   if (!frequenza) { toast('Seleziona la frequenza', 'error'); return; }
 
   const main        = loadMain();
@@ -400,10 +457,10 @@ function savePayment(e) {
   renderTable();
   toast(`Pagamento di ${athlete.nomeRagazzo} salvato ✓`, 'success');
 
-  if (tipo === 'Contanti') openWhatsApp(athlete, frequenza, dateStr, tipo, periodo);
+  if (tipo === 'Contanti') openWhatsApp(athlete, frequenza, dateStr, tipo, periodo, iscrizioneChecked);
 }
 
-function openWhatsApp(athlete, frequenza, dateStr, tipo, periodo) {
+function openWhatsApp(athlete, frequenza, dateStr, tipo, periodo, iscrizioneChecked) {
   if (!athlete.telefono) { toast('Nessun numero di telefono registrato per questo atleta', 'error'); return; }
   let phone = athlete.telefono.replace(/\D/g, '');
   if (phone.startsWith('0')) phone = phone.slice(1);
@@ -418,20 +475,29 @@ function openWhatsApp(athlete, frequenza, dateStr, tipo, periodo) {
     `📅 Data: ${dataFmt}\n` +
     `🔄 Frequenza: ${frequenza}${importo ? ' — €' + importo : (isGratuito ? ' — Gratuito' : '')}\n` +
     `📆 Periodo: ${periodo || '—'}\n` +
-    `💳 Tipo: ${tipo || '—'}\n\n` +
-    `Grazie per la fiducia! 🏀`;
+    `💳 Tipo: ${tipo || '—'}\n` +
+    (iscrizioneChecked ? `✅ Pagata anche la quota di iscrizione (€${ISCRIZIONE_QUOTA})\n` : '') +
+    `\nGrazie per la fiducia! 🏀`;
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 /* ─── RICEVUTA DI PAGAMENTO (Excel) ───
-   Genera un file .xls con i dati dell'atleta e SOLO l'ultimo pagamento
-   registrato al momento del click: se in settembre si genera una ricevuta
-   e poi si registra un nuovo pagamento a ottobre, la ricevuta generata a
-   ottobre conterrà solo il pagamento di ottobre (ogni click legge lo stato
-   più recente, non accumula i pagamenti precedenti). Ogni file scaricato è
-   indipendente e nominato con il periodo, quindi non sovrascrive i
-   precedenti già salvati sul computer. Data e numero ricevuta sono lasciati
-   vuoti per la compilazione manuale.  */
+   - Pagamenti in CONTANTI: la ricevuta somma tutti i pagamenti in contanti
+     non ancora inclusi in una ricevuta precedente (compreso l'ultimo appena
+     inserito). Una volta generata, quei pagamenti vengono marcati come
+     "in ricevuta": la ricevuta successiva ripartirà solo dai pagamenti
+     fatti dopo, senza mai sommare due volte lo stesso importo.
+   - Pagamenti in BONIFICO (o Gratuito): la ricevuta contiene SOLO l'ultimo
+     importo inserito, mai una somma di più pagamenti.
+   Data e numero ricevuta sono lasciati vuoti per la compilazione manuale. */
+function _paymentMeseInfo(p) {
+  const meseIdx = (p.meseRiferimento !== null && p.meseRiferimento !== undefined) ? p.meseRiferimento : getMeseIdx(p.dataPagamento);
+  const meseJS  = MESI_JS[meseIdx];
+  const anno    = p.dataPagamento ? new Date(p.dataPagamento + 'T00:00:00').getFullYear() : new Date().getFullYear();
+  return { meseIdx, meseJS, anno };
+}
+function _cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
 function generaRicevuta(id) {
   const main    = loadMain();
   const athlete = main.find(r => r.id === id);
@@ -441,8 +507,41 @@ function generaRicevuta(id) {
   if (!pagamenti.length) { toast('Nessun pagamento registrato per questo atleta', 'error'); return; }
   const ultimo = pagamenti.reduce((a, b) => (a.dataPagamento > b.dataPagamento ? a : b));
 
-  const isGratuito = ultimo.tipoPagamento === 'Gratuito';
-  const importo    = isGratuito ? 0 : (FREQ_IMPORTO[ultimo.frequenza] || 0);
+  let batch, importo, frequenzaLabel, periodoLabel, tipoLabel;
+
+  if (ultimo.tipoPagamento === 'Contanti') {
+    batch = pagamenti
+      .filter(p => p.tipoPagamento === 'Contanti' && !p.ricevutaEmessa)
+      .sort((a, b) => a.dataPagamento.localeCompare(b.dataPagamento));
+    if (!batch.length) { toast('Nessun nuovo pagamento in contanti da inserire: è già tutto in una ricevuta precedente', 'error'); return; }
+
+    importo = parseFloat(batch.reduce((s, p) => s + (FREQ_IMPORTO[p.frequenza] || 0), 0).toFixed(2));
+
+    const freqSet = [...new Set(batch.map(p => p.frequenza))];
+    frequenzaLabel = freqSet.join(', ');
+
+    const iniInfo = _paymentMeseInfo(batch[0]);
+    const finInfo = _paymentMeseInfo(batch[batch.length - 1]);
+    const nomeIni = _cap(MESI_NOMI[iniInfo.meseJS]);
+    const nomeFin = _cap(MESI_NOMI[finInfo.meseJS]);
+    periodoLabel = (iniInfo.meseIdx === finInfo.meseIdx && iniInfo.anno === finInfo.anno)
+      ? `${nomeIni} ${iniInfo.anno}`
+      : `${nomeIni} ${iniInfo.anno} – ${nomeFin} ${finInfo.anno}`;
+
+    tipoLabel = 'Contanti';
+  } else {
+    batch = [ultimo];
+    const isGratuito = ultimo.tipoPagamento === 'Gratuito';
+    importo        = isGratuito ? 0 : (FREQ_IMPORTO[ultimo.frequenza] || 0);
+    frequenzaLabel = ultimo.frequenza;
+    periodoLabel   = ultimo.periodo || '';
+    tipoLabel      = ultimo.tipoPagamento || '';
+  }
+
+  const dettaglioBatch = (tipoLabel === 'Contanti' && batch.length > 1)
+    ? batch.map(p => p.periodo || '').filter(Boolean).join(' + ')
+    : '';
+
   const importoFmt = `€ ${importo.toFixed(2).replace('.', ',')}`;
   const nascitaFmt  = athlete.dataNascita ? new Date(athlete.dataNascita + 'T00:00:00').toLocaleDateString('it-IT') : '';
   const luogoNascitaFmt = [athlete.luogoNascita, athlete.provinciaNascita ? `(${athlete.provinciaNascita})` : ''].filter(Boolean).join(' ');
@@ -476,9 +575,10 @@ function generaRicevuta(id) {
   ${riga('Codice Fiscale', athlete.cfGenitore)}
   ${riga('Telefono', athlete.telefono)}
   ${sezione('DETTAGLIO PAGAMENTO')}
-  ${riga('Tipo di Pagamento', ultimo.tipoPagamento)}
-  ${riga('Frequenza', ultimo.frequenza)}
-  ${riga('Periodo di riferimento', ultimo.periodo)}
+  ${riga('Tipo di Pagamento', tipoLabel)}
+  ${riga('Frequenza', frequenzaLabel)}
+  ${riga('Periodo di riferimento', periodoLabel)}
+  ${dettaglioBatch ? riga('Mensilità incluse', dettaglioBatch) : ''}
   ${riga('Importo', importoFmt)}
   <tr><td colspan="2" style="padding:28px 10px 6px;border:1px solid #CBD5E1">&nbsp;</td></tr>
   <tr><td colspan="2" style="padding:6px 10px;border:1px solid #CBD5E1">Firma: _______________________________</td></tr>
@@ -488,10 +588,19 @@ function generaRicevuta(id) {
   const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  const periodoSlug = (ultimo.periodo || ultimo.dataPagamento || '').replace(/[^\w-]+/g, '_');
+  const periodoSlug = (periodoLabel || ultimo.dataPagamento || '').replace(/[^\w-]+/g, '_');
   const nomeSlug = `${athlete.cognome || ''}_${athlete.nome || ''}`.replace(/[^\w-]+/g, '_');
   a.download = `ricevuta_${nomeSlug}_${periodoSlug}.xls`;
   a.click();
+
+  // I pagamenti in contanti appena inclusi in questa ricevuta vengono
+  // marcati: la prossima ricevuta di questo atleta partirà dal mese dopo.
+  if (tipoLabel === 'Contanti') {
+    const idsBatch = new Set(batch.map(p => p.id));
+    main.forEach(r => { if (idsBatch.has(r.id)) r.ricevutaEmessa = true; });
+    saveMain(main);
+  }
+
   toast(`Ricevuta di ${athlete.nomeRagazzo} generata ✓`, 'success');
 }
 
