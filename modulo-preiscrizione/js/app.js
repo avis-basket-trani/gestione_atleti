@@ -53,16 +53,61 @@ const REQUIRED_FIELDS_BY_STEP = {
     2: ['gCognome', 'gNome', 'gCF', 'gTel', 'gEmail'],
 };
 
+// Nome leggibile di ogni campo, usato nel messaggio di errore mostrato
+// al genitore così da sapere sempre QUALE campo va corretto.
+const FIELD_LABELS = {
+    mCognome:         'Cognome del/della minore',
+    mNome:            'Nome del/della minore',
+    mLuogoNascita:    'Luogo di nascita del/della minore',
+    mProvNascita:     'Provincia di nascita del/della minore',
+    mDataNascita:     'Data di nascita del/della minore',
+    mCF:              'Codice Fiscale del/della minore',
+    mNazionalita:     'Nazionalità del/della minore',
+    mVia:             'Indirizzo di residenza (Via) del/della minore',
+    mComune:          'Comune di residenza del/della minore',
+    mProvResidenza:   'Provincia di residenza del/della minore',
+    gCognome:         'Cognome del genitore/tutore',
+    gNome:            'Nome del genitore/tutore',
+    gCF:              'Codice Fiscale del genitore/tutore',
+    gTel:             'Telefono del genitore/tutore',
+    gEmail:           'E-mail del genitore/tutore',
+    dataCompilazione: 'Data di compilazione',
+};
+
+// Un semplice "required" HTML non basta: un campo con un solo spazio viene
+// considerato valido dal browser (non è vuoto), quindi passava il controllo
+// senza che il genitore avesse davvero inserito un dato. Qui il valore viene
+// confrontato dopo il trim, e se manca viene mostrato un messaggio d'errore
+// nativo del browser con il nome del campo, invece di bloccare in silenzio.
+function _validateField(id) {
+    const el    = document.getElementById(id);
+    const label = FIELD_LABELS[id] || 'Questo campo';
+
+    if (!el.value.trim()) {
+        el.setCustomValidity(`Il campo "${label}" è obbligatorio: non può restare vuoto o contenere solo uno spazio.`);
+        el.reportValidity();
+        el.focus();
+        el.addEventListener('input', function clearMsg() {
+            el.setCustomValidity('');
+            el.removeEventListener('input', clearMsg);
+        });
+        return false;
+    }
+
+    el.setCustomValidity('');
+    if (!el.checkValidity()) {
+        el.reportValidity();
+        el.focus();
+        return false;
+    }
+    return true;
+}
+
 function validateStep(n) {
     const ids = REQUIRED_FIELDS_BY_STEP[n];
     if (!ids) return true;
     for (const id of ids) {
-        const el = document.getElementById(id);
-        if (!el.checkValidity() || !el.value.trim()) {
-            el.reportValidity();
-            el.focus();
-            return false;
-        }
+        if (!_validateField(id)) return false;
     }
     return true;
 }
@@ -86,13 +131,8 @@ function normalizeKey(str) {
 // ---- Invio form ----
 async function submitForm() {
     if (!validateStep(1) || !validateStep(2)) return;
+    if (!_validateField('dataCompilazione')) return;
 
-    const dataCompilazioneEl = document.getElementById('dataCompilazione');
-    if (!dataCompilazioneEl.checkValidity() || !dataCompilazioneEl.value.trim()) {
-        dataCompilazioneEl.reportValidity();
-        dataCompilazioneEl.focus();
-        return;
-    }
     if (!consensoFoto || !consensoPrivacy) {
         alert('Devi rispondere a entrambe le richieste di consenso (Presto/Nego il consenso) prima di inviare la domanda.');
         return;
