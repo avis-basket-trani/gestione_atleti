@@ -25,6 +25,70 @@ body {
   min-height: 100vh;
 }
 
+/* ── SCHERMATA DI ACCESSO (password) ──
+   Mostrata solo quando <html> ha la classe "locked" (impostata da uno
+   script inline in <head>, prima del CSS, per evitare che il contenuto
+   della pagina lampeggi prima di essere nascosto). Nasconde tutto il resto
+   del body finché non viene inserita la password corretta. */
+.auth-gate {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: linear-gradient(135deg, #0F0F0F 0%, #1C1C1C 100%);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+html.locked .auth-gate { display: flex; }
+html.locked body > *:not(.auth-gate) { display: none !important; }
+
+.auth-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 40px 32px;
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+}
+.auth-card .logo-ball { margin: 0 auto 18px; width: 64px; height: 64px; }
+.auth-card h1 { font-size: 1.2rem; font-weight: 700; color: var(--black); margin-bottom: 6px; }
+.auth-card p  { font-size: 0.85rem; color: var(--slate); margin-bottom: 22px; }
+.auth-card form { display: flex; flex-direction: column; gap: 12px; }
+.auth-card input {
+  padding: 12px 14px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 1rem;
+  text-align: center;
+  outline: none;
+  background: #F8FAFC;
+  transition: border .2s, background .2s;
+}
+.auth-card input:focus { border-color: var(--yellow); background: var(--white); }
+.auth-card button {
+  background: var(--yellow);
+  color: var(--black);
+  border: none;
+  padding: 12px 20px;
+  border-radius: 50px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s, transform .1s;
+}
+.auth-card button:hover  { background: var(--yellow-dark); color: var(--white); transform: translateY(-1px); }
+.auth-card button:active { transform: translateY(0); }
+.auth-error { display: none; color: var(--red); font-size: 0.8rem; }
+.auth-card.shake { animation: authShake .4s; }
+@keyframes authShake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-8px); }
+  40%, 60% { transform: translateX(8px); }
+}
+
 /* ── HEADER ── */
 header {
   background: linear-gradient(135deg, #0F0F0F 0%, #1C1C1C 100%);
@@ -47,23 +111,14 @@ header {
 
 .logo-ball {
   width: 48px; height: 48px;
-  background: var(--yellow);
+  background: var(--white);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px;
   flex-shrink: 0;
   box-shadow: 0 0 0 3px rgba(234,179,8,0.35);
-  position: relative;
   overflow: hidden;
 }
-.logo-ball::before, .logo-ball::after {
-  content: '';
-  position: absolute;
-  border: 2px solid rgba(0,0,0,0.25);
-  border-radius: 50%;
-}
-.logo-ball::before { width: 100%; height: 100%; top: 0; left: -35%; }
-.logo-ball::after  { width: 100%; height: 100%; top: 0; left: 35%; }
+.logo-ball img { width: 100%; height: 100%; object-fit: cover; }
 
 .header-titles { flex: 1; }
 .header-titles h1 { font-size: clamp(1rem, 3vw, 1.35rem); font-weight: 700; letter-spacing: -0.3px; }
@@ -294,6 +349,13 @@ tr.row-no-preiscrizione .player-name { color: var(--red); }
   color: var(--slate);
 }
 .empty-state .empty-icon { font-size: 56px; margin-bottom: 14px; }
+.empty-state img.empty-icon {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 3px rgba(234,179,8,0.35);
+  background: var(--white);
+}
 .empty-state p { font-size: 0.95rem; }
 
 /* ── MODAL ── */
@@ -334,10 +396,12 @@ tr.row-no-preiscrizione .player-name { color: var(--red); }
   flex-shrink: 0;
 }
 .modal-header .ball-sm {
-  width: 36px; height: 36px; background: var(--yellow); border-radius: 50%;
+  width: 36px; height: 36px; background: var(--white); border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-size: 18px;
   flex-shrink: 0;
+  overflow: hidden;
 }
+.modal-header .ball-sm img { width: 100%; height: 100%; object-fit: cover; }
 .modal-header h2 { font-size: 1.05rem; font-weight: 700; }
 .modal-header p  { font-size: 0.78rem; color: var(--slate-light); }
 .btn-close {

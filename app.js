@@ -59,6 +59,21 @@ function watchPreiscrizioni() {
   }, err => console.error('[Firebase] errore lettura preiscrizioni per anagrafica:', err));
 }
 
+/* Un atleta è "nuovo iscritto" quando è stato aggiunto in anagrafica dal
+   pulsante ➕ della pagina Pre-Iscrizioni su una domanda segnata come
+   🆕 Nuovo (flag "aggiunta_al_registro" sulla pre-iscrizione corrispondente).
+   Tutti gli altri (dati storici, aggiunti a mano, o rinnovi sincronizzati
+   automaticamente da una pre-iscrizione già in elenco) sono considerati
+   rinnovi/atleti già in anagrafica. */
+function isNuovoIscritto(r) {
+  const chiave = normalizeKey(`${r.cognome} ${r.nome}`);
+  return preiscrizioniPerMatch.some(p => {
+    if (!p.aggiunta_al_registro) return false;
+    const pChiave = p.chiave_match || normalizeKey(`${p.minore?.cognome} ${p.minore?.nome}`);
+    return pChiave === chiave;
+  });
+}
+
 /* ─── CERTIFICATO MEDICO ─── */
 const CERT_PREAVVISO_GIORNI = 60;
 
@@ -87,8 +102,13 @@ function getFiltered() {
       (r.cf || '').toLowerCase().includes(search) ||
       (r.comune || '').toLowerCase().includes(search) ||
       (r.luogoNascita || '').toLowerCase().includes(search);
-    const matchGruppo = !gruppo || r.gruppo === gruppo;
-    const matchAnno   = !anno || String(r.anno) === anno;
+    // "🆕 Solo nuovi iscritti" e "🔄 Solo rinnovi" sono due voci speciali
+    // dentro lo stesso menù del gruppo: non filtrano per categoria, ma per
+    // tipo di iscrizione (vedi isNuovoIscritto).
+    const matchGruppo = gruppo === '__NUOVI__' ? isNuovoIscritto(r)
+      : gruppo === '__RINNOVI__' ? !isNuovoIscritto(r)
+      : (!gruppo || r.gruppo === gruppo);
+    const matchAnno = !anno || String(r.anno) === anno;
     return matchSearch && matchGruppo && matchAnno;
   }).sort((a, b) => {
     let va, vb;

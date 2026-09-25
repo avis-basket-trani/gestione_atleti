@@ -4,14 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Avis Basket Trani – Pre-Iscrizioni Minibasket</title>
+<script>
+  if (localStorage.getItem('avisBasketAuth') !== 'avis-basket-auth-ok-v1') {
+    document.documentElement.classList.add('locked');
+  }
+</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- SCHERMATA DI ACCESSO -->
+<div class="auth-gate">
+  <div class="auth-card" id="authCard">
+    <div class="logo-ball"><img src="img/logo.jpg" alt="Avis Basket Trani"></div>
+    <h1>Avis Basket Trani</h1>
+    <p>Inserisci la password per accedere al gestionale</p>
+    <form onsubmit="return checkAuthPassword(event)">
+      <input type="password" id="authPassword" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit">Accedi</button>
+      <p class="auth-error" id="authError">Password errata, riprova.</p>
+    </form>
+  </div>
+</div>
+<script src="auth.js"></script>
+
 <!-- HEADER -->
 <header>
   <div class="header-inner">
-    <div class="logo-ball">🏀</div>
+    <div class="logo-ball"><img src="img/logo.jpg" alt="Avis Basket Trani"></div>
     <div class="header-titles">
       <h1>Avis Basket Trani</h1>
       <p>Pre-Iscrizioni Centro Minibasket</p>

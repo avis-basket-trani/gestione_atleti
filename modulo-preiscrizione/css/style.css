@@ -49,23 +49,14 @@ header {
 
 .logo-ball {
   width: 52px; height: 52px;
-  background: var(--yellow);
+  background: var(--white);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 28px;
   flex-shrink: 0;
   box-shadow: 0 0 0 3px rgba(234,179,8,0.35);
-  position: relative;
   overflow: hidden;
 }
-.logo-ball::before, .logo-ball::after {
-  content: '';
-  position: absolute;
-  border: 2px solid rgba(0,0,0,0.25);
-  border-radius: 50%;
-}
-.logo-ball::before { width: 100%; height: 100%; top: 0; left: -35%; }
-.logo-ball::after  { width: 100%; height: 100%; top: 0; left: 35%; }
+.logo-ball img { width: 100%; height: 100%; object-fit: cover; }
 
 .header-titles h1 { font-size: clamp(1.05rem, 4vw, 1.4rem); font-weight: 700; letter-spacing: -0.3px; }
 .header-titles p  { font-size: 0.8rem; color: var(--slate-light); margin-top: 3px; }
@@ -488,7 +479,7 @@ footer {
 @media (max-width: 600px) {
   header { padding-top: env(safe-area-inset-top); }
   .header-inner { padding: 16px 0; gap: 12px; }
-  .logo-ball { width: 44px; height: 44px; font-size: 22px; }
+  .logo-ball { width: 44px; height: 44px; }
   .main-container { padding: 20px 14px 40px; }
   .form-card { padding: 20px 16px; }
   .consent-row { flex-direction: column; }
