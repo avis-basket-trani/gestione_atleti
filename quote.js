@@ -6,8 +6,8 @@ const MESI_NOMI  = ['gennaio','febbraio','marzo','aprile','maggio','giugno','lug
 
 /* Trimestrale non è più selezionabile per nuovi pagamenti, ma resta qui
    per calcolare correttamente i pagamenti storici già salvati con questa frequenza. */
-const FREQ_IMPORTO   = { Lezione: 5, 'Metà mese': 20, Mensile: 35, Trimestrale: 95, Stagionale: 270 };
-const ISCRIZIONE_QUOTA = 30;
+const FREQ_IMPORTO   = { Lezione: 5, 'Metà mese': 20, Mensile: 35, Trimestrale: 95, Stagionale: 270, Iscrizione: 30 };
+const ISCRIZIONE_QUOTA = FREQ_IMPORTO.Iscrizione;
 const TIPO_CLASS = { Contanti: 'contanti', Bonifico: 'bonifico', Gratuito: 'gratuito' };
 
 let sortKey = 'cognome';
@@ -44,24 +44,46 @@ function buildAthleteData() {
   for (const r of main) {
     if (!r.nomeRagazzo || r.athleteId) continue; // solo record-identità atleta
     athletes.set(r.id, {
-      id:              r.id,
-      nomeRagazzo:     r.nomeRagazzo,
-      cognome:         r.cognome || '',
-      nome:            r.nome || '',
-      anno:            r.anno || '',
-      gruppo:          r.gruppo || '',
-      iscrizione:      !!r.iscrizione,
-      nomeGenitore:    r.nomeGenitore || '',
-      telefono:        r.telefono || '',
-      hasPayments:     false,
-      mesi:            blankMesi(),
-      ultimoPagamento: null,
+      id:                     r.id,
+      nomeRagazzo:            r.nomeRagazzo,
+      cognome:                r.cognome || '',
+      nome:                   r.nome || '',
+      anno:                   r.anno || '',
+      gruppo:                 r.gruppo || '',
+      nomeGenitore:           r.nomeGenitore || '',
+      telefono:               r.telefono || '',
+      hasPayments:            false,
+      mesi:                   blankMesi(),
+      ultimoPagamento:        null,
+      iscrizionePagata:       false,
+      iscrizioneTotale:       0,
+      ultimoPagamentoIscrizione: null,
     });
   }
 
   const applyPagamento = (entry, r) => {
     if (!r.frequenza || !r.dataPagamento) return;
     entry.hasPayments = true;
+
+    // L'iscrizione è un pagamento a sé stante: ha la sua colonna dedicata e
+    // non entra mai nella distribuzione delle 9 mensilità né nell'"ultimo
+    // pagamento" mostrato nelle colonne Frequenza/Periodo/Tipo/Data.
+    if (r.frequenza === 'Iscrizione') {
+      entry.iscrizionePagata = true;
+      const isGratuito = r.tipoPagamento === 'Gratuito';
+      const importo = isGratuito ? 0 : (FREQ_IMPORTO.Iscrizione || 0);
+      entry.iscrizioneTotale = parseFloat((entry.iscrizioneTotale + importo).toFixed(2));
+      if (!entry.ultimoPagamentoIscrizione || r.dataPagamento > entry.ultimoPagamentoIscrizione.dataPagamento) {
+        entry.ultimoPagamentoIscrizione = {
+          frequenza:     r.frequenza,
+          periodo:       r.periodo || '',
+          tipoPagamento: r.tipoPagamento || '',
+          dataPagamento: r.dataPagamento,
+        };
+      }
+      return;
+    }
+
     const meseIdx = (r.meseRiferimento !== null && r.meseRiferimento !== undefined)
       ? r.meseRiferimento : undefined;
     const isGratuito = r.tipoPagamento === 'Gratuito';
@@ -146,6 +168,10 @@ function getPeriodo(frequenza, dateStr, meseIdxOverride) {
       const sy = meseJS >= 8 ? y : y - 1;
       return `Stagionale ${sy}-${String(sy + 1).slice(2)}`;
     }
+    case 'Iscrizione': {
+      const sy = meseJS >= 8 ? y : y - 1;
+      return `Stagione ${sy}-${String(sy + 1).slice(2)}`;
+    }
     default: return '';
   }
 }
@@ -159,14 +185,43 @@ function fmtPlain(n) {
   return n > 0 ? `€${n.toFixed(2).replace('.', ',')}` : '—';
 }
 
-/* ─── TOGGLE ISCRIZIONE (per id univoco) ─── */
-function toggleIscrizione(id) {
+/* ─── MIGRAZIONE: da interruttore "iscrizione" a pagamento vero e proprio ───
+   Prima l'iscrizione era un semplice flag booleano sull'atleta, attivabile
+   con un click. Ora è un pagamento a sé stante (frequenza "Iscrizione"),
+   con la sua data, il suo tipo e una ricevuta dedicata. Per non perdere gli
+   incassi già segnati come pagati con il vecchio sistema, ogni atleta con
+   il flag true e nessun pagamento di iscrizione già registrato ne riceve
+   automaticamente uno equivalente (data odierna e tipo "Contanti" come
+   valori di default, dato che il vecchio flag non salvava né l'una né
+   l'altro: se non corretti, si possono comunque modificare dal pulsante
+   di modifica pagamenti). Idempotente: una volta migrato, il flag viene
+   rimosso e non viene più ricreato nulla ai run successivi. */
+function migrateIscrizioneFlags() {
   const main = loadMain();
-  const idx  = main.findIndex(r => r.id === id);
-  if (idx === -1) return;
-  main[idx].iscrizione = !main[idx].iscrizione;
-  saveMain(main);
-  renderTable();
+  let changed = false;
+
+  for (const r of main) {
+    if (!r.nomeRagazzo || r.athleteId) continue; // solo record-identità atleta
+    if (!r.iscrizione) continue;
+
+    const giaPresente = main.some(p => p.athleteId === r.id && p.frequenza === 'Iscrizione');
+    if (!giaPresente) {
+      const dataPagamento = r.dataPagamento || new Date().toISOString().slice(0, 10);
+      main.push({
+        id:               uid(),
+        athleteId:        r.id,
+        dataPagamento,
+        frequenza:        'Iscrizione',
+        meseRiferimento:  null,
+        periodo:          getPeriodo('Iscrizione', dataPagamento),
+        tipoPagamento:    r.tipoPagamento || 'Contanti',
+      });
+    }
+    delete r.iscrizione;
+    changed = true;
+  }
+
+  if (changed) saveMain(main);
 }
 
 /* ─── SORT ─── */
@@ -195,7 +250,7 @@ function renderTable() {
 
   athletes = athletes.map(a => {
     const meseSum = MESI_KEYS.reduce((s, k) => s + (a.mesi[k] || 0), 0);
-    const totale  = (a.iscrizione ? ISCRIZIONE_QUOTA : 0) + meseSum;
+    const totale  = (a.iscrizioneTotale || 0) + meseSum;
     return { ...a, meseSum, totale };
   });
 
@@ -203,7 +258,7 @@ function renderTable() {
     let va, vb;
     if      (sortKey === 'cognome')    { va = a.cognome || a.nomeRagazzo; vb = b.cognome || b.nomeRagazzo; }
     else if (sortKey === 'totale')     { va = a.totale;      vb = b.totale; }
-    else if (sortKey === 'iscrizione') { va = a.iscrizione ? 1 : 0; vb = b.iscrizione ? 1 : 0; }
+    else if (sortKey === 'iscrizione') { va = a.iscrizionePagata ? 1 : 0; vb = b.iscrizionePagata ? 1 : 0; }
     else if (sortKey === 'gruppo')     { va = a.gruppo || ''; vb = b.gruppo || ''; }
     else                               { va = a.cognome || a.nomeRagazzo; vb = b.cognome || b.nomeRagazzo; }
     if (typeof va === 'string') {
@@ -230,10 +285,9 @@ function renderTable() {
   const colTotals   = blankMesi();
   let totIscrizioni = 0, totGrand = 0;
 
-  tbody.innerHTML = athletes.map(({ id, nomeRagazzo, cognome, nome, gruppo, iscrizione, mesi, totale, hasPayments, ultimoPagamento }) => {
+  tbody.innerHTML = athletes.map(({ id, nomeRagazzo, cognome, nome, gruppo, iscrizionePagata, iscrizioneTotale, mesi, totale, hasPayments, ultimoPagamento }) => {
     const etichetta = (cognome || nome) ? `${cognome} ${nome}`.trim() : nomeRagazzo;
-    const iscAmt = iscrizione ? ISCRIZIONE_QUOTA : 0;
-    totIscrizioni += iscAmt;
+    totIscrizioni += (iscrizioneTotale || 0);
     MESI_KEYS.forEach(k => colTotals[k] += (mesi[k] || 0));
     totGrand += totale;
     const gruppoHtml = gruppo
@@ -254,7 +308,8 @@ function renderTable() {
         ${hasPayments ? `<button class="btn-edit-athlete" onclick="openAthleteModal('${escHtml(id)}')" title="Modifica pagamenti">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
-        <button class="btn-edit-athlete" onclick="generaRicevuta('${escHtml(id)}')" title="Genera ricevuta di pagamento (Excel)">🧾</button>` : ''}
+        <button class="btn-edit-athlete" onclick="generaRicevuta('${escHtml(id)}')" title="Genera ricevuta pagamento quote (Excel)">🧾</button>` : ''}
+        ${iscrizionePagata ? `<button class="btn-edit-athlete" onclick="generaRicevutaIscrizione('${escHtml(id)}')" title="Genera ricevuta iscrizione (Excel)">🎫</button>` : ''}
       </td>
       <td data-label="Gruppo">${gruppoHtml}</td>
       <td data-label="Frequenza">${freqHtml}</td>
@@ -262,11 +317,7 @@ function renderTable() {
       <td data-label="Tipo">${tipoHtml}</td>
       <td data-label="Data Pagamento">${dataHtml}</td>
       <td data-label="Iscrizione">
-        <button class="toggle-iscrizione ${iscrizione ? 'is-paid' : 'is-unpaid'}"
-                onclick="toggleIscrizione('${escHtml(id)}')"
-                title="Clicca per cambiare">
-          ${iscrizione ? '✓ Pagata' : '✗ Non pagata'}
-        </button>
+        <span class="badge ${iscrizionePagata ? 'badge-si' : 'badge-no'}">${iscrizionePagata ? '✓ Pagata' : '✗ Non pagata'}</span>
       </td>
       ${MESI_KEYS.map((k, i) => `<td class="cell-mese" data-label="${MESI_SHORT[i]}">${fmt(mesi[k] || 0)}</td>`).join('')}
       <td class="cell-totale" data-label="Totale">${totale > 0 ? `<strong>${fmtPlain(totale)}</strong>` : '<span class="cell-empty">—</span>'}</td>
@@ -422,7 +473,6 @@ function savePayment(e) {
   const frequenza = document.getElementById('f_frequenza').value;
   const dateStr   = document.getElementById('f_dataPagamento').value;
   const tipo      = document.getElementById('f_tipoPagamento').value;
-  const iscrizioneChecked = document.getElementById('f_iscrizione').checked;
 
   if (!athleteId) { toast('Seleziona un atleta dall\'elenco di ricerca', 'error'); return; }
   if (!frequenza) { toast('Seleziona la frequenza', 'error'); return; }
@@ -449,18 +499,19 @@ function savePayment(e) {
     tipoPagamento:    tipo,
   });
 
-  if (iscrizioneChecked) athlete.iscrizione = true; // athlete è un riferimento diretto: valido anche dopo unshift
-
   saveMain(main);
 
   closeModal();
   renderTable();
   toast(`Pagamento di ${athlete.nomeRagazzo} salvato ✓`, 'success');
 
-  if (tipo === 'Contanti') openWhatsApp(athlete, frequenza, dateStr, tipo, periodo, iscrizioneChecked);
+  if (tipo === 'Contanti') {
+    if (frequenza === 'Iscrizione') openWhatsAppIscrizione(athlete, dateStr, tipo);
+    else openWhatsApp(athlete, frequenza, dateStr, tipo, periodo);
+  }
 }
 
-function openWhatsApp(athlete, frequenza, dateStr, tipo, periodo, iscrizioneChecked) {
+function openWhatsApp(athlete, frequenza, dateStr, tipo, periodo) {
   if (!athlete.telefono) { toast('Nessun numero di telefono registrato per questo atleta', 'error'); return; }
   let phone = athlete.telefono.replace(/\D/g, '');
   if (phone.startsWith('0')) phone = phone.slice(1);
@@ -475,9 +526,28 @@ function openWhatsApp(athlete, frequenza, dateStr, tipo, periodo, iscrizioneChec
     `📅 Data: ${dataFmt}\n` +
     `🔄 Frequenza: ${frequenza}${importo ? ' — €' + importo : (isGratuito ? ' — Gratuito' : '')}\n` +
     `📆 Periodo: ${periodo || '—'}\n` +
-    `💳 Tipo: ${tipo || '—'}\n` +
-    (iscrizioneChecked ? `✅ Pagata anche la quota di iscrizione (€${ISCRIZIONE_QUOTA})\n` : '') +
-    `\nGrazie per la fiducia! 🏀`;
+    `💳 Tipo: ${tipo || '—'}\n\n` +
+    `Grazie per la fiducia! 🏀`;
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+/* Messaggio dedicato per il pagamento dell'iscrizione: separato da quello
+   delle quote, non essendo più un'aggiunta ad un altro pagamento ma un
+   pagamento a sé stante (frequenza "Iscrizione"). */
+function openWhatsAppIscrizione(athlete, dateStr, tipo) {
+  if (!athlete.telefono) { toast('Nessun numero di telefono registrato per questo atleta', 'error'); return; }
+  let phone = athlete.telefono.replace(/\D/g, '');
+  if (phone.startsWith('0')) phone = phone.slice(1);
+  if (!phone.startsWith('39')) phone = '39' + phone;
+  const dataFmt  = dateStr ? new Date(dateStr + 'T00:00:00').toLocaleDateString('it-IT') : '—';
+  const genitore = athlete.nomeGenitore || 'Genitore';
+  const msg =
+    `Gentile ${genitore},\n\n` +
+    `abbiamo registrato il pagamento della quota di iscrizione per *${athlete.nomeRagazzo}*:\n\n` +
+    `📅 Data: ${dataFmt}\n` +
+    `🎫 Iscrizione — €${ISCRIZIONE_QUOTA}\n` +
+    `💳 Tipo: ${tipo || '—'}\n\n` +
+    `Grazie per la fiducia! 🏀`;
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
@@ -498,12 +568,17 @@ function _paymentMeseInfo(p) {
 }
 function _cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
-function generaRicevuta(id) {
+/* generaRicevuta (quote) e generaRicevutaIscrizione condividono la stessa
+   logica e lo stesso modello di ricevuta: cambia solo quali pagamenti
+   vengono considerati (matchFreq) e la descrizione stampata. Tenerle separate
+   sull'atleta evita che una ricevuta delle quote mensili includa per errore
+   l'iscrizione (o viceversa). */
+function _generaRicevutaCore(id, { matchFreq, descrizione, filenameTag }) {
   const main    = loadMain();
   const athlete = main.find(r => r.id === id);
   if (!athlete) { toast('Atleta non trovato', 'error'); return; }
 
-  const pagamenti = main.filter(r => r.frequenza && r.dataPagamento && (r.athleteId === id || r.id === id));
+  const pagamenti = main.filter(r => r.frequenza && matchFreq(r.frequenza) && r.dataPagamento && (r.athleteId === id || r.id === id));
   if (!pagamenti.length) { toast('Nessun pagamento registrato per questo atleta', 'error'); return; }
   const ultimo = pagamenti.reduce((a, b) => (a.dataPagamento > b.dataPagamento ? a : b));
 
@@ -558,9 +633,12 @@ function generaRicevuta(id) {
 <body>
 <table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:13px;width:520px">
   <tr><td colspan="2" style="font-size:17px;font-weight:bold;padding:12px 10px;border:1px solid #CBD5E1">A.S.D. AVIS BASKET TRANI</td></tr>
+  <tr><td colspan="2" style="padding:2px 10px;border:1px solid #CBD5E1;color:#64748B">Via Parini, 4</td></tr>
+  <tr><td colspan="2" style="padding:2px 10px;border:1px solid #CBD5E1;color:#64748B">C.F.: 92071360728</td></tr>
   <tr><td colspan="2" style="padding:4px 10px;border:1px solid #CBD5E1;color:#64748B">Ricevuta di Pagamento — Centro Minibasket (cod. FIP 054580)</td></tr>
   ${riga('N. Ricevuta', '')}
   ${riga('Data', '')}
+  ${riga('Descrizione', descrizione)}
   ${sezione('DATI ATLETA')}
   ${riga('Cognome', athlete.cognome)}
   ${riga('Nome', athlete.nome)}
@@ -568,8 +646,6 @@ function generaRicevuta(id) {
   ${riga('Luogo di nascita', luogoNascitaFmt)}
   ${riga('Codice Fiscale', athlete.cf)}
   ${riga('Indirizzo di residenza', indirizzoFmt)}
-  ${riga('Gruppo', athlete.gruppo)}
-  ${riga('Anno', athlete.anno)}
   ${sezione('DATI GENITORE / PAGANTE')}
   ${riga('Nome e Cognome', athlete.nomeGenitore)}
   ${riga('Codice Fiscale', athlete.cfGenitore)}
@@ -590,7 +666,7 @@ function generaRicevuta(id) {
   a.href = URL.createObjectURL(blob);
   const periodoSlug = (periodoLabel || ultimo.dataPagamento || '').replace(/[^\w-]+/g, '_');
   const nomeSlug = `${athlete.cognome || ''}_${athlete.nome || ''}`.replace(/[^\w-]+/g, '_');
-  a.download = `ricevuta_${nomeSlug}_${periodoSlug}.xls`;
+  a.download = `ricevuta_${filenameTag}${nomeSlug}_${periodoSlug}.xls`;
   a.click();
 
   // I pagamenti in contanti appena inclusi in questa ricevuta vengono
@@ -602,6 +678,22 @@ function generaRicevuta(id) {
   }
 
   toast(`Ricevuta di ${athlete.nomeRagazzo} generata ✓`, 'success');
+}
+
+function generaRicevuta(id) {
+  _generaRicevutaCore(id, {
+    matchFreq:   f => f !== 'Iscrizione',
+    descrizione: 'Corso di Minibasket',
+    filenameTag: '',
+  });
+}
+
+function generaRicevutaIscrizione(id) {
+  _generaRicevutaCore(id, {
+    matchFreq:   f => f === 'Iscrizione',
+    descrizione: 'Quota di Iscrizione — Corso di Minibasket',
+    filenameTag: 'iscrizione_',
+  });
 }
 
 /* ─── TOAST ─── */
@@ -630,7 +722,7 @@ function exportCSV() {
   const header = ['Atleta', 'Gruppo', 'Frequenza', 'Periodo', 'Tipo', 'Data Pagamento', 'Iscrizione', ...MESI_SHORT, 'Totale'];
   const rows   = athletes.map(a => {
     const meseSum = MESI_KEYS.reduce((s, k) => s + (a.mesi[k] || 0), 0);
-    const totale  = (a.iscrizione ? ISCRIZIONE_QUOTA : 0) + meseSum;
+    const totale  = (a.iscrizioneTotale || 0) + meseSum;
     const up = a.ultimoPagamento;
     return [
       a.nomeRagazzo,
@@ -639,7 +731,7 @@ function exportCSV() {
       up?.periodo || '',
       up?.tipoPagamento || '',
       up?.dataPagamento || '',
-      a.iscrizione ? 'Pagata' : 'Non pagata',
+      a.iscrizionePagata ? 'Pagata' : 'Non pagata',
       ...MESI_KEYS.map(k => a.mesi[k] > 0 ? a.mesi[k].toFixed(2).replace('.', ',') : '0'),
       totale.toFixed(2).replace('.', ',')
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';');
@@ -712,6 +804,7 @@ function renderAthletePayments() {
               <option value="Mensile"      ${p.frequenza==='Mensile'     ?'selected':''}>Mensile — €35</option>
               ${p.frequenza === 'Trimestrale' ? `<option value="Trimestrale" selected>Trimestrale — €95</option>` : ''}
               <option value="Stagionale"  ${p.frequenza==='Stagionale' ?'selected':''}>Stagionale — €270</option>
+              <option value="Iscrizione"  ${p.frequenza==='Iscrizione' ?'selected':''}>Iscrizione — €30</option>
             </select>
           </div>
           <div class="form-group">
@@ -850,4 +943,5 @@ document.getElementById('overlayPagamenti').addEventListener('click', e => {
 });
 
 /* ─── INIT ─── */
+migrateIscrizioneFlags();
 renderTable();

@@ -232,7 +232,6 @@ async function aggiungiComeAtleta(id) {
         frequenza: '',
         periodo: '',
         tipoPagamento: '',
-        iscrizione: false,
     });
     localStorage.setItem('avisBasketPagamenti', JSON.stringify(records));
 
