@@ -304,16 +304,21 @@ tbody td {
   border-radius: 50px;
   font-size: 0.73rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 .badge-contanti       { background: #FEE2E2; color: #991B1B; }
 .badge-bonifico       { background: #DCFCE7; color: #166534; }
 .badge-gratuito       { background: #F1F5F9; color: #64748B; }
-.badge-gruppo-pulcini    { background: #FEF9C3; color: #854D0E; }
+.badge-gruppo-pulcini         { background: #FEF9C3; color: #854D0E; }
+.badge-gruppo-scoiattoli-small { background: #D1FAE5; color: #047857; }
+.badge-gruppo-scoiattoli-big   { background: #DCFCE7; color: #166534; }
+.badge-gruppo-aquilotti       { background: #DBEAFE; color: #1E40AF; }
+.badge-gruppo-u15             { background: #F0FDF4; color: #15803D; }
+/* Schema precedente: rimasti solo come rete di sicurezza per eventuali
+   valori non ancora remappati automaticamente al nuovo schema. */
 .badge-gruppo-scoiattoli { background: #DCFCE7; color: #166534; }
-.badge-gruppo-aquilotti  { background: #DBEAFE; color: #1E40AF; }
 .badge-gruppo-u13        { background: #EDE9FE; color: #7C3AED; }
 .badge-gruppo-u14        { background: #FEE2E2; color: #991B1B; }
-.badge-gruppo-u15        { background: #F0FDF4; color: #15803D; }
 .badge-gruppo-esordienti { background: #FFE4E6; color: #9F1239; }
 .badge-nuovo    { background: #DCFCE7; color: #15803D; }
 .badge-rinnovo  { background: #FEF9C3; color: #854D0E; }
@@ -581,7 +586,7 @@ tr.row-no-preiscrizione .player-name { color: var(--red); }
 }
 
 /* ── QUOTE TABLE ── */
-.table-quote { min-width: 1100px; }
+.table-quote { min-width: 1160px; }
 
 .table-quote thead th { padding: 10px 10px; font-size: 0.7rem; }
 .table-quote thead th.th-name {
@@ -589,7 +594,7 @@ tr.row-no-preiscrizione .player-name { color: var(--red); }
   position: sticky; left: 0;
   background: #F8FAFC; z-index: 2;
 }
-.table-quote thead th.th-gruppo { min-width: 100px; }
+.table-quote thead th.th-gruppo { min-width: 140px; }
 .table-quote thead th.th-iscr  { min-width: 110px; }
 .table-quote thead th.th-mese { min-width: 68px; text-align: center; }
 .table-quote thead th.th-tot  { min-width: 80px; text-align: right; }

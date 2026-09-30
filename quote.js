@@ -291,7 +291,7 @@ function renderTable() {
     MESI_KEYS.forEach(k => colTotals[k] += (mesi[k] || 0));
     totGrand += totale;
     const gruppoHtml = gruppo
-      ? `<span class="badge badge-gruppo-${gruppo.toLowerCase()}">${escHtml(gruppo)}</span>`
+      ? `<span class="badge badge-gruppo-${gruppo.toLowerCase().replace(/\s+/g, '-')}">${escHtml(gruppo)}</span>`
       : '<span class="cell-empty">—</span>';
     const freqHtml = ultimoPagamento ? escHtml(ultimoPagamento.frequenza) : '<span class="cell-empty">—</span>';
     const periodoHtml = ultimoPagamento?.periodo ? escHtml(ultimoPagamento.periodo) : '<span class="cell-empty">—</span>';

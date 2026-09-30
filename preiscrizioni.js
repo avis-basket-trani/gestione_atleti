@@ -58,22 +58,34 @@ function readMainRecords() {
 function computeGruppo(anno) {
     const y = parseInt(anno, 10);
     if (!y) return '';
-    if (y >= 2020) return 'Pulcini';
-    if (y >= 2018) return 'Scoiattoli';
+    if (y >= 2022) return 'Pulcini';
+    if (y >= 2020) return 'Scoiattoli small';
+    if (y >= 2018) return 'Scoiattoli big';
     if (y >= 2016) return 'Aquilotti';
-    if (y === 2015) return 'Esordienti';
-    if (y === 2014) return 'U13';
-    if (y === 2013) return 'U14';
-    if (y === 2012) return 'U15';
-    if (y < 2012)   return 'U15';
-    return '';
+    return 'U15'; // 2015 e precedenti
 }
 
-/* ─── Riconoscimento doppioni ─── */
+/* ─── Riconoscimento doppioni ───
+   Il confronto avviene principalmente sul CODICE FISCALE del minore, molto
+   più affidabile del nome: due fratelli/omonimi con lo stesso nome e cognome
+   (es. i due "Daniele Di Cugno" già gestiti in passato) hanno comunque un
+   CF diverso, quindi non vengono più confusi tra loro.
+   Per gli atleti storici che non hanno ancora un CF compilato in anagrafica
+   (o per pre-iscrizioni in cui il CF non fosse leggibile) resta un fallback
+   sul nome normalizzato, così non si perde il riconoscimento dei rinnovi già
+   funzionante fino ad oggi. */
 function computeStato(item) {
-    const chiave = item.chiave_match || normalizeKey(`${item.minore?.cognome} ${item.minore?.nome}`);
+    const cfMinore = (item.minore?.codice_fiscale || '').toUpperCase().trim();
     const mainRecords = readMainRecords();
-    const match = mainRecords.find(r => normalizeKey(`${r.cognome} ${r.nome}`) === chiave);
+
+    let match = null;
+    if (cfMinore) {
+        match = mainRecords.find(r => (r.cf || '').toUpperCase().trim() === cfMinore);
+    }
+    if (!match) {
+        const chiave = item.chiave_match || normalizeKey(`${item.minore?.cognome} ${item.minore?.nome}`);
+        match = mainRecords.find(r => normalizeKey(`${r.cognome} ${r.nome}`) === chiave);
+    }
     return match ? { stato: 'rinnovo', match } : { stato: 'nuovo', match: null };
 }
 
