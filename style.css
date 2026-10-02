@@ -314,6 +314,7 @@ tbody td {
 .badge-gruppo-scoiattoli-big   { background: #DCFCE7; color: #166534; }
 .badge-gruppo-aquilotti       { background: #DBEAFE; color: #1E40AF; }
 .badge-gruppo-u15             { background: #F0FDF4; color: #15803D; }
+.badge-gruppo-queen-bees      { background: #FFFBEB; color: #B45309; }
 /* Schema precedente: rimasti solo come rete di sicurezza per eventuali
    valori non ancora remappati automaticamente al nuovo schema. */
 .badge-gruppo-scoiattoli { background: #DCFCE7; color: #166534; }
