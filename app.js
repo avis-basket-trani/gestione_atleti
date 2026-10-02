@@ -84,7 +84,26 @@ function normalizeKey(str) {
     .trim();
 }
 
+/* Stesso criterio usato in preiscrizioni.js (computeStato): confronto
+   principalmente sul CODICE FISCALE del minore, molto più affidabile del
+   nome — capita che cognome e nome vengano invertiti per errore nella
+   compilazione del modulo online (es. "Christian" salvato come cognome),
+   caso in cui il solo confronto per nome non troverebbe mai una corrispondenza
+   pur avendo lo stesso identico CF. Per gli atleti storici senza CF ancora
+   compilato resta un fallback sul nome normalizzato. */
 function hasPreiscrizione(r) {
+  // Alcuni atleti sono stati inseriti direttamente in anagrafica (dati già
+  // completi) senza passare dal modulo online di pre-iscrizione: per questi
+  // il flag "preiscrizioneEsente" evita l'evidenziazione in rosso pur non
+  // esistendo nessuna domanda corrispondente su Firestore.
+  if (r.preiscrizioneEsente) return true;
+
+  const cfAtleta = (r.cf || '').toUpperCase().trim();
+  if (cfAtleta) {
+    const matchCf = preiscrizioniPerMatch.some(p => (p.minore?.codice_fiscale || '').toUpperCase().trim() === cfAtleta);
+    if (matchCf) return true;
+  }
+
   const chiave = normalizeKey(`${r.cognome} ${r.nome}`);
   return preiscrizioniPerMatch.some(p => {
     const pChiave = p.chiave_match || normalizeKey(`${p.minore?.cognome} ${p.minore?.nome}`);
