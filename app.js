@@ -24,50 +24,6 @@ function computeGruppo(anno) {
   return 'U15'; // 2015 e precedenti (compreso chi è nato prima del 2012)
 }
 
-/* Schema precedente, usato SOLO da remapGruppiNuovoSchema() per riconoscere
-   se il gruppo attualmente salvato su un atleta era stato assegnato in
-   automatico con le vecchie fasce d'età (e quindi va aggiornato al nuovo
-   schema) oppure impostato a mano da qualcuno (nel qual caso va lasciato
-   invariato, per non cancellare una scelta deliberata). */
-function _computeGruppoVecchio(anno) {
-  const y = parseInt(anno, 10);
-  if (!y) return '';
-  if (y >= 2020) return 'Pulcini';
-  if (y >= 2018) return 'Scoiattoli';
-  if (y >= 2016) return 'Aquilotti';
-  if (y === 2015) return 'Esordienti';
-  if (y === 2014) return 'U13';
-  if (y === 2013) return 'U14';
-  if (y === 2012) return 'U15';
-  if (y < 2012)   return 'U15';
-  return '';
-}
-
-/* Aggiorna i gruppi già salvati al nuovo schema (Pulcini 2022+, Scoiattoli
-   small 2020-21, Scoiattoli big 2018-19, Aquilotti 2016-17, U15 2015 e
-   precedenti), ma SOLO per gli atleti il cui gruppo coincide ancora con
-   quanto avrebbe assegnato in automatico lo schema precedente: se qualcuno
-   lo ha già cambiato a mano, quel valore differirebbe dall'automatico e
-   viene lasciato intatto. Idempotente: una volta remappato, il nuovo valore
-   non corrisponde più al vecchio schema, quindi ai run successivi non viene
-   più toccato. */
-function remapGruppiNuovoSchema() {
-  let changed = false;
-  records = records.map(r => {
-    if (!r.anno || r.athleteId) return r;
-    const vecchioAtteso = _computeGruppoVecchio(r.anno);
-    if (vecchioAtteso && r.gruppo === vecchioAtteso) {
-      const nuovo = computeGruppo(r.anno);
-      if (nuovo && nuovo !== r.gruppo) {
-        r = { ...r, gruppo: nuovo };
-        changed = true;
-      }
-    }
-    return r;
-  });
-  if (changed) save();
-}
-
 /* ─── PRE-ISCRIZIONI: chi non ha ancora una pre-iscrizione per la stagione ───
    Ascolta la collezione Firestore "preiscrizioni" (stessa usata da
    preiscrizioni.html) solo per capire, atleta per atleta, se esiste una
@@ -637,6 +593,5 @@ function recomputeGruppi() {
 seedData();
 migrateRecords();
 recomputeGruppi();
-remapGruppiNuovoSchema();
 renderTable();
 checkCertificatiAllAvvio();

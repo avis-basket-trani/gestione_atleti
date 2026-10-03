@@ -30,7 +30,6 @@ function initFirebaseSync() {
       // Riesegui migrazione dopo ogni sync Firebase
       if (typeof migrateRecords === 'function') migrateRecords();
       if (typeof recomputeGruppi === 'function') recomputeGruppi();
-      if (typeof remapGruppiNuovoSchema === 'function') remapGruppiNuovoSchema();
       if (typeof migrateIscrizioneFlags === 'function') migrateIscrizioneFlags();
       if (typeof renderTable === 'function') renderTable();
       setTimeout(() => {
