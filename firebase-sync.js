@@ -5,10 +5,15 @@ let _db             = null;
 
 Storage.prototype.setItem = function(key, value) {
   _origSetItem.call(this, key, value);
-  if (FIREBASE_READY && !_syncInProgress && key === 'avisBasketPagamenti') {
+  if (!FIREBASE_READY || _syncInProgress) return;
+  if (key === 'avisBasketPagamenti') {
     _db.collection('avisBasket').doc('pagamenti')
       .set({ data: value, aggiornato: firebase.firestore.FieldValue.serverTimestamp() })
       .catch(err => console.error('[Firebase] write error:', err));
+  } else if (key === 'avisBasketUltimaRicevuta') {
+    _db.collection('avisBasket').doc('ultimaRicevuta')
+      .set({ data: value, aggiornato: firebase.firestore.FieldValue.serverTimestamp() })
+      .catch(err => console.error('[Firebase] write error (ultimaRicevuta):', err));
   }
 };
 
@@ -43,6 +48,15 @@ function initFirebaseSync() {
         }
       }, 150);
     }, err => console.error('[Firebase] snapshot error:', err));
+
+    // Promemoria "ultima ricevuta creata" (numero/data): sincronizzato allo
+    // stesso modo dei pagamenti, così non si perde cambiando browser/PC.
+    _db.collection('avisBasket').doc('ultimaRicevuta').onSnapshot(snap => {
+      if (!snap.exists || !snap.data()?.data) return;
+      const remoteData = snap.data().data;
+      if (remoteData === localStorage.getItem('avisBasketUltimaRicevuta')) return;
+      _origSetItem.call(localStorage, 'avisBasketUltimaRicevuta', remoteData);
+    }, err => console.error('[Firebase] snapshot error (ultimaRicevuta):', err));
 
     if (typeof watchPreiscrizioni === 'function') watchPreiscrizioni();
 

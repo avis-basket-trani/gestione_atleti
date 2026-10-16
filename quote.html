@@ -104,6 +104,7 @@
             <th class="th-mese">Mar</th>
             <th class="th-mese">Apr</th>
             <th class="th-mese">Mag</th>
+            <th class="th-mese">Giu</th>
             <th class="th-tot" onclick="sortBy('totale')">Totale <span class="sort-arrow">↕</span></th>
           </tr>
         </thead>
@@ -169,6 +170,7 @@
               <option value="6">Marzo</option>
               <option value="7">Aprile</option>
               <option value="8">Maggio</option>
+              <option value="9">Giugno</option>
             </select>
           </div>
           <div class="form-group">
@@ -215,9 +217,48 @@
   </div>
 </div>
 
+<!-- MODAL GENERA RICEVUTA (numero + data, poi genera il PDF) -->
+<div class="overlay" id="overlayFinalizza">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="ball-sm">🧾</div>
+      <div>
+        <h2>Genera Ricevuta</h2>
+        <p>Inserisci numero e data per generare il PDF</p>
+      </div>
+      <button class="btn-close" onclick="closeFinalizzaModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="finalizzaForm" onsubmit="confermaFinalizzaRicevuta(event)">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>N. Ricevuta</label>
+            <input type="text" id="fin_numero" placeholder="Es. 12/2026" required>
+          </div>
+          <div class="form-group">
+            <label>Data</label>
+            <input type="date" id="fin_data" required>
+          </div>
+          <p class="fin-reminder" id="fin_reminder"></p>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeFinalizzaModal()">Annulla</button>
+      <button class="btn-save" onclick="confermaFinalizzaRicevuta(event)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Genera PDF
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast-container" id="toastContainer"></div>
 
+<!-- Libreria per generare le ricevute in PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="quote.js"></script>
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>

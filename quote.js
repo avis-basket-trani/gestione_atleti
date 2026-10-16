@@ -1,7 +1,7 @@
 /* ─── COSTANTI ─── */
-const MESI_KEYS  = ['settembre','ottobre','novembre','dicembre','gennaio','febbraio','marzo','aprile','maggio'];
-const MESI_SHORT = ['Set','Ott','Nov','Dic','Gen','Feb','Mar','Apr','Mag'];
-const MESI_JS    = [8, 9, 10, 11, 0, 1, 2, 3, 4];
+const MESI_KEYS  = ['settembre','ottobre','novembre','dicembre','gennaio','febbraio','marzo','aprile','maggio','giugno'];
+const MESI_SHORT = ['Set','Ott','Nov','Dic','Gen','Feb','Mar','Apr','Mag','Giu'];
+const MESI_JS    = [8, 9, 10, 11, 0, 1, 2, 3, 4, 5];
 const MESI_NOMI  = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 
 /* Trimestrale non è più selezionabile per nuovi pagamenti, ma resta qui
@@ -16,6 +16,18 @@ let sortAsc = true;
 /* ─── STORAGE – unico database ─── */
 function loadMain()  { return JSON.parse(localStorage.getItem('avisBasketPagamenti') || '[]'); }
 function saveMain(d) { localStorage.setItem('avisBasketPagamenti', JSON.stringify(d)); }
+
+/* Promemoria dell'ultima ricevuta creata (numero/data), per non rischiare
+   di duplicare un numero già usato. Un solo valore globale, condiviso tra
+   ricevute quote e iscrizione, dato che in pratica si usa un'unica
+   numerazione progressiva. */
+function loadUltimaRicevuta() {
+  try { return JSON.parse(localStorage.getItem('avisBasketUltimaRicevuta') || 'null'); }
+  catch { return null; }
+}
+function saveUltimaRicevuta(numero, dataStr) {
+  localStorage.setItem('avisBasketUltimaRicevuta', JSON.stringify({ numero, data: dataStr }));
+}
 
 function blankMesi() {
   const m = {};
@@ -308,8 +320,8 @@ function renderTable() {
         ${hasPayments ? `<button class="btn-edit-athlete" onclick="openAthleteModal('${escHtml(id)}')" title="Modifica pagamenti">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
-        <button class="btn-edit-athlete" onclick="generaRicevuta('${escHtml(id)}')" title="Genera ricevuta pagamento quote (Excel)">🧾</button>` : ''}
-        ${iscrizionePagata ? `<button class="btn-edit-athlete" onclick="generaRicevutaIscrizione('${escHtml(id)}')" title="Genera ricevuta iscrizione (Excel)">🎫</button>` : ''}
+        <button class="btn-edit-athlete" onclick="apriFinalizzaRicevuta('${escHtml(id)}','quote')" title="Genera ricevuta quote (PDF)">🧾</button>` : ''}
+        ${iscrizionePagata ? `<button class="btn-edit-athlete" onclick="apriFinalizzaRicevuta('${escHtml(id)}','iscrizione')" title="Genera ricevuta iscrizione (PDF)">🎫</button>` : ''}
       </td>
       <td data-label="Gruppo">${gruppoHtml}</td>
       <td data-label="Frequenza">${freqHtml}</td>
@@ -551,15 +563,17 @@ function openWhatsAppIscrizione(athlete, dateStr, tipo) {
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-/* ─── RICEVUTA DI PAGAMENTO (Excel) ───
-   - Pagamenti in CONTANTI: la ricevuta somma tutti i pagamenti in contanti
-     non ancora inclusi in una ricevuta precedente (compreso l'ultimo appena
-     inserito). Una volta generata, quei pagamenti vengono marcati come
-     "in ricevuta": la ricevuta successiva ripartirà solo dai pagamenti
-     fatti dopo, senza mai sommare due volte lo stesso importo.
-   - Pagamenti in BONIFICO (o Gratuito): la ricevuta contiene SOLO l'ultimo
-     importo inserito, mai una somma di più pagamenti.
-   Data e numero ricevuta sono lasciati vuoti per la compilazione manuale. */
+/* ─── RICEVUTA DI PAGAMENTO (PDF) ───
+   Un solo passo: si clicca l'icona della ricevuta (🧾/🎫), si apre un popup
+   che chiede numero e data — mostrando anche un promemoria dell'ultima
+   ricevuta creata, per non rischiare di ripetere un numero già usato — e
+   alla conferma viene generato direttamente il PDF, con la stessa
+   struttura a sezioni usata in precedenza per l'Excel. Solo a questo
+   punto, per i pagamenti in contanti, il "lotto" incluso viene marcato
+   come già ricevuto: la ricevuta successiva ripartirà da quanto pagato
+   dopo, senza mai sommare due volte lo stesso importo. I pagamenti in
+   Bonifico (o Gratuito) includono invece sempre e solo l'ultimo importo
+   inserito. */
 function _paymentMeseInfo(p) {
   const meseIdx = (p.meseRiferimento !== null && p.meseRiferimento !== undefined) ? p.meseRiferimento : getMeseIdx(p.dataPagamento);
   const meseJS  = MESI_JS[meseIdx];
@@ -568,18 +582,22 @@ function _paymentMeseInfo(p) {
 }
 function _cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
-/* generaRicevuta (quote) e generaRicevutaIscrizione condividono la stessa
-   logica e lo stesso modello di ricevuta: cambia solo quali pagamenti
-   vengono considerati (matchFreq) e la descrizione stampata. Tenerle separate
-   sull'atleta evita che una ricevuta delle quote mensili includa per errore
-   l'iscrizione (o viceversa). */
-function _generaRicevutaCore(id, { matchFreq, descrizione, filenameTag }) {
+/* Le annate 2012-2014 giocano nel corso Basket, non più Minibasket: la
+   ricevuta deve riportare la dicitura corretta a seconda dell'atleta. */
+function _nomeCorso(anno) {
+  const annoNum = parseInt(anno, 10);
+  return [2012, 2013, 2014].includes(annoNum) ? 'Corso di Basket' : 'Corso di Minibasket';
+}
+
+/* Calcola SOLO i dati della ricevuta (quali pagamenti, importo, etichette),
+   senza generare alcun file né modificare lo stato dei pagamenti. */
+function _calcolaDatiRicevuta(id, matchFreq) {
   const main    = loadMain();
   const athlete = main.find(r => r.id === id);
-  if (!athlete) { toast('Atleta non trovato', 'error'); return; }
+  if (!athlete) return { errore: 'Atleta non trovato' };
 
   const pagamenti = main.filter(r => r.frequenza && matchFreq(r.frequenza) && r.dataPagamento && (r.athleteId === id || r.id === id));
-  if (!pagamenti.length) { toast('Nessun pagamento registrato per questo atleta', 'error'); return; }
+  if (!pagamenti.length) return { errore: 'Nessun pagamento registrato per questo atleta' };
   const ultimo = pagamenti.reduce((a, b) => (a.dataPagamento > b.dataPagamento ? a : b));
 
   let batch, importo, frequenzaLabel, periodoLabel, tipoLabel;
@@ -588,7 +606,7 @@ function _generaRicevutaCore(id, { matchFreq, descrizione, filenameTag }) {
     batch = pagamenti
       .filter(p => p.tipoPagamento === 'Contanti' && !p.ricevutaEmessa)
       .sort((a, b) => a.dataPagamento.localeCompare(b.dataPagamento));
-    if (!batch.length) { toast('Nessun nuovo pagamento in contanti da inserire: è già tutto in una ricevuta precedente', 'error'); return; }
+    if (!batch.length) return { errore: 'Nessun nuovo pagamento in contanti da inserire: è già tutto in una ricevuta precedente' };
 
     importo = parseFloat(batch.reduce((s, p) => s + (FREQ_IMPORTO[p.frequenza] || 0), 0).toFixed(2));
 
@@ -617,83 +635,159 @@ function _generaRicevutaCore(id, { matchFreq, descrizione, filenameTag }) {
     ? batch.map(p => p.periodo || '').filter(Boolean).join(' + ')
     : '';
 
-  const importoFmt = `€ ${importo.toFixed(2).replace('.', ',')}`;
-  const nascitaFmt  = athlete.dataNascita ? new Date(athlete.dataNascita + 'T00:00:00').toLocaleDateString('it-IT') : '';
-  const luogoNascitaFmt = [athlete.luogoNascita, athlete.provinciaNascita ? `(${athlete.provinciaNascita})` : ''].filter(Boolean).join(' ');
-  const indirizzoFmt = [athlete.via, athlete.comune, athlete.provinciaResidenza ? `(${athlete.provinciaResidenza})` : ''].filter(Boolean).join(', ');
+  return { athlete, batch, importo, frequenzaLabel, periodoLabel, tipoLabel, dettaglioBatch };
+}
 
-  const riga = (label, value) =>
-    `<tr><td style="font-weight:bold;background:#F1F5F9;padding:6px 10px;border:1px solid #CBD5E1;white-space:nowrap">${escHtml(label)}</td>` +
-    `<td style="padding:6px 10px;border:1px solid #CBD5E1">${escHtml(value || '')}</td></tr>`;
-  const sezione = (titolo) =>
-    `<tr><td colspan="2" style="font-weight:bold;background:#0F0F0F;color:#EAB308;padding:7px 10px;border:1px solid #CBD5E1">${escHtml(titolo)}</td></tr>`;
-
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="UTF-8"></head>
-<body>
-<table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:13px;width:520px">
-  <tr><td colspan="2" style="font-size:17px;font-weight:bold;padding:12px 10px;border:1px solid #CBD5E1">A.S.D. AVIS BASKET TRANI</td></tr>
-  <tr><td colspan="2" style="padding:2px 10px;border:1px solid #CBD5E1;color:#64748B">Via Parini, 4</td></tr>
-  <tr><td colspan="2" style="padding:2px 10px;border:1px solid #CBD5E1;color:#64748B">C.F.: 92071360728</td></tr>
-  <tr><td colspan="2" style="padding:4px 10px;border:1px solid #CBD5E1;color:#64748B">Ricevuta di Pagamento — Centro Minibasket (cod. FIP 054580)</td></tr>
-  ${riga('N. Ricevuta', '')}
-  ${riga('Data', '')}
-  ${riga('Descrizione', descrizione)}
-  ${sezione('DATI ATLETA')}
-  ${riga('Cognome', athlete.cognome)}
-  ${riga('Nome', athlete.nome)}
-  ${riga('Data di nascita', nascitaFmt)}
-  ${riga('Luogo di nascita', luogoNascitaFmt)}
-  ${riga('Codice Fiscale', athlete.cf)}
-  ${riga('Indirizzo di residenza', indirizzoFmt)}
-  ${sezione('DATI GENITORE / PAGANTE')}
-  ${riga('Nome e Cognome', athlete.nomeGenitore)}
-  ${riga('Codice Fiscale', athlete.cfGenitore)}
-  ${riga('Telefono', athlete.telefono)}
-  ${sezione('DETTAGLIO PAGAMENTO')}
-  ${riga('Tipo di Pagamento', tipoLabel)}
-  ${riga('Frequenza', frequenzaLabel)}
-  ${riga('Periodo di riferimento', periodoLabel)}
-  ${dettaglioBatch ? riga('Mensilità incluse', dettaglioBatch) : ''}
-  ${riga('Importo', importoFmt)}
-  <tr><td colspan="2" style="padding:28px 10px 6px;border:1px solid #CBD5E1">&nbsp;</td></tr>
-  <tr><td colspan="2" style="padding:6px 10px;border:1px solid #CBD5E1">Firma: _______________________________</td></tr>
-</table>
-</body></html>`;
-
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  const periodoSlug = (periodoLabel || ultimo.dataPagamento || '').replace(/[^\w-]+/g, '_');
+function _nomeFileRicevuta(dati, filenameTag, ext) {
+  const { athlete, periodoLabel } = dati;
+  const periodoSlug = (periodoLabel || '').replace(/[^\w-]+/g, '_');
   const nomeSlug = `${athlete.cognome || ''}_${athlete.nome || ''}`.replace(/[^\w-]+/g, '_');
-  a.download = `ricevuta_${filenameTag}${nomeSlug}_${periodoSlug}.xls`;
-  a.click();
+  return `ricevuta_${filenameTag}${nomeSlug}_${periodoSlug}.${ext}`;
+}
 
-  // I pagamenti in contanti appena inclusi in questa ricevuta vengono
-  // marcati: la prossima ricevuta di questo atleta partirà dal mese dopo.
-  if (tipoLabel === 'Contanti') {
-    const idsBatch = new Set(batch.map(p => p.id));
-    main.forEach(r => { if (idsBatch.has(r.id)) r.ricevutaEmessa = true; });
-    saveMain(main);
+/* Genera il PDF della ricevuta con jsPDF + autoTable: intestazione del
+   club, sezioni DATI ATLETA / DATI GENITORE / DETTAGLIO PAGAMENTO, con gli
+   stessi colori del resto del programma (nero + giallo per le sezioni) —
+   la stessa struttura usata in precedenza per il file Excel. */
+function _generaEScaricaPdf(dati, { descrizione, numeroRicevuta, dataRicevuta, filename }) {
+  const { athlete, importo, frequenzaLabel, periodoLabel, tipoLabel, dettaglioBatch } = dati;
+  const nascitaFmt      = athlete.dataNascita ? new Date(athlete.dataNascita + 'T00:00:00').toLocaleDateString('it-IT') : '';
+  const luogoNascitaFmt = [athlete.luogoNascita, athlete.provinciaNascita ? `(${athlete.provinciaNascita})` : ''].filter(Boolean).join(' ');
+  const indirizzoFmt    = [athlete.via, athlete.comune, athlete.provinciaResidenza ? `(${athlete.provinciaResidenza})` : ''].filter(Boolean).join(', ');
+  const importoFmt      = `€ ${importo.toFixed(2).replace('.', ',')}`;
+  const dataRicevutaFmt = dataRicevuta ? new Date(dataRicevuta + 'T00:00:00').toLocaleDateString('it-IT') : '';
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(15);
+  doc.text('A.S.D. AVIS BASKET TRANI', 14, 18);
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(100, 116, 139);
+  doc.text('Via Parini, 4', 14, 25);
+  doc.text('C.F.: 92071360728', 14, 30);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'italic');
+  doc.text('Ricevuta di Pagamento — Centro Minibasket (cod. FIP 054580)', 14, 36);
+  doc.setFont(undefined, 'normal');
+  doc.setTextColor(0, 0, 0);
+
+  const sezioni = new Set(['DATI ATLETA', 'DATI GENITORE / PAGANTE', 'DETTAGLIO PAGAMENTO']);
+  const righe = [
+    ['N. Ricevuta', numeroRicevuta || ''],
+    ['Data', dataRicevutaFmt],
+    ['Descrizione', descrizione || ''],
+    ['DATI ATLETA', ''],
+    ['Cognome', athlete.cognome || ''],
+    ['Nome', athlete.nome || ''],
+    ['Data di nascita', nascitaFmt],
+    ['Luogo di nascita', luogoNascitaFmt],
+    ['Codice Fiscale', athlete.cf || ''],
+    ['Indirizzo di residenza', indirizzoFmt],
+    ['DATI GENITORE / PAGANTE', ''],
+    ['Nome e Cognome', athlete.nomeGenitore || ''],
+    ['Codice Fiscale', athlete.cfGenitore || ''],
+    ['Telefono', athlete.telefono || ''],
+    ['DETTAGLIO PAGAMENTO', ''],
+    ['Tipo di Pagamento', tipoLabel || ''],
+    ['Frequenza', frequenzaLabel || ''],
+    ['Periodo di riferimento', periodoLabel || ''],
+  ];
+  if (dettaglioBatch) righe.push(['Mensilità incluse', dettaglioBatch]);
+  righe.push(['Importo', importoFmt]);
+
+  doc.autoTable({
+    startY: 42,
+    body: righe,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 4, lineColor: [203, 213, 225], lineWidth: 0.1 },
+    columnStyles: { 0: { fontStyle: 'bold', fillColor: [241, 245, 249], cellWidth: 65 }, 1: { cellWidth: 'auto' } },
+    didParseCell: (data) => {
+      if (sezioni.has(data.row.raw[0])) {
+        data.cell.styles.fillColor   = [15, 15, 15];
+        data.cell.styles.textColor   = [234, 179, 8];
+        data.cell.styles.fontStyle   = 'bold';
+      }
+    },
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 20;
+  doc.setFontSize(10);
+  doc.text('Firma: _______________________________', 14, finalY);
+
+  doc.save(filename);
+}
+
+/* ─── GENERA RICEVUTA (🧾/🎫): numero + data → PDF ───
+   Solo alla conferma del popup i pagamenti in contanti del lotto vengono
+   marcati come "in ricevuta". */
+let _finId   = null;
+let _finTipo = null; // 'quote' | 'iscrizione'
+
+function apriFinalizzaRicevuta(id, tipo) {
+  _finId = id;
+  _finTipo = tipo;
+  document.getElementById('fin_numero').value = '';
+  document.getElementById('fin_data').value = new Date().toISOString().slice(0, 10);
+
+  const ultima = loadUltimaRicevuta();
+  document.getElementById('fin_reminder').textContent = ultima
+    ? `Ultima ricevuta creata: n. ${ultima.numero} del ${new Date(ultima.data + 'T00:00:00').toLocaleDateString('it-IT')}`
+    : 'Nessuna ricevuta creata finora';
+
+  document.getElementById('overlayFinalizza').classList.add('open');
+  setTimeout(() => document.getElementById('fin_numero').focus(), 100);
+}
+
+function closeFinalizzaModal() {
+  document.getElementById('overlayFinalizza').classList.remove('open');
+  _finId = null;
+  _finTipo = null;
+}
+
+function confermaFinalizzaRicevuta(e) {
+  e && e.preventDefault();
+  const numero  = document.getElementById('fin_numero').value.trim();
+  const dataStr = document.getElementById('fin_data').value;
+  if (!numero)  { toast('Inserisci il numero della ricevuta', 'error'); return; }
+  if (!dataStr) { toast('Inserisci la data della ricevuta', 'error'); return; }
+  if (!_finId || !_finTipo) { toast('Errore interno: nessun atleta selezionato', 'error'); return; }
+
+  const isIscrizione = _finTipo === 'iscrizione';
+  const matchFreq     = isIscrizione ? (f => f === 'Iscrizione') : (f => f !== 'Iscrizione');
+  const filenameTag    = isIscrizione ? 'iscrizione_' : '';
+
+  const dati = _calcolaDatiRicevuta(_finId, matchFreq);
+  if (dati.errore) { toast(dati.errore, 'error'); return; }
+
+  // Le annate 2012-2014 giocano nel corso Basket (non Minibasket): la
+  // dicitura in ricevuta deve rifletterlo.
+  const corso = _nomeCorso(dati.athlete.anno);
+  const descrizione = isIscrizione ? `Quota di Iscrizione — ${corso}` : corso;
+
+  try {
+    const nomePdf = _nomeFileRicevuta(dati, filenameTag, 'pdf');
+    _generaEScaricaPdf(dati, { descrizione, numeroRicevuta: numero, dataRicevuta: dataStr, filename: nomePdf });
+
+    // Finalizzazione vera e propria: solo ora il lotto in contanti viene
+    // marcato come ricevuto.
+    if (dati.tipoLabel === 'Contanti') {
+      const main = loadMain();
+      const idsBatch = new Set(dati.batch.map(p => p.id));
+      main.forEach(r => { if (idsBatch.has(r.id)) r.ricevutaEmessa = true; });
+      saveMain(main);
+    }
+
+    saveUltimaRicevuta(numero, dataStr);
+
+    closeFinalizzaModal();
+    toast(`Ricevuta n. ${numero} di ${dati.athlete.nomeRagazzo} generata ✓`, 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Errore nella generazione del PDF', 'error');
   }
-
-  toast(`Ricevuta di ${athlete.nomeRagazzo} generata ✓`, 'success');
-}
-
-function generaRicevuta(id) {
-  _generaRicevutaCore(id, {
-    matchFreq:   f => f !== 'Iscrizione',
-    descrizione: 'Corso di Minibasket',
-    filenameTag: '',
-  });
-}
-
-function generaRicevutaIscrizione(id) {
-  _generaRicevutaCore(id, {
-    matchFreq:   f => f === 'Iscrizione',
-    descrizione: 'Quota di Iscrizione — Corso di Minibasket',
-    filenameTag: 'iscrizione_',
-  });
 }
 
 /* ─── TOAST ─── */
@@ -932,7 +1026,8 @@ function confirmDeletePayment(id) {
 /* ─── EVENTI ─── */
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  if (document.getElementById('overlayPagamenti').classList.contains('open')) closeAthleteModal();
+  if (document.getElementById('overlayFinalizza').classList.contains('open')) closeFinalizzaModal();
+  else if (document.getElementById('overlayPagamenti').classList.contains('open')) closeAthleteModal();
   else closeModal();
 });
 document.getElementById('overlay').addEventListener('click', e => {
@@ -940,6 +1035,9 @@ document.getElementById('overlay').addEventListener('click', e => {
 });
 document.getElementById('overlayPagamenti').addEventListener('click', e => {
   if (e.target === document.getElementById('overlayPagamenti')) closeAthleteModal();
+});
+document.getElementById('overlayFinalizza').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlayFinalizza')) closeFinalizzaModal();
 });
 
 /* ─── INIT ─── */

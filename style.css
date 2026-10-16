@@ -430,6 +430,14 @@ tr.row-no-preiscrizione .player-name { color: var(--red); }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group.full { grid-column: 1 / -1; }
 
+.fin-reminder {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+  font-size: 0.8rem;
+  color: var(--slate);
+  font-style: italic;
+}
+
 .form-group label {
   font-size: 0.77rem;
   font-weight: 700;
@@ -587,11 +595,11 @@ tr.row-no-preiscrizione .player-name { color: var(--red); }
 }
 
 /* ── QUOTE TABLE ── */
-.table-quote { min-width: 1160px; }
+.table-quote { min-width: 1330px; }
 
 .table-quote thead th { padding: 10px 10px; font-size: 0.7rem; }
 .table-quote thead th.th-name {
-  min-width: 160px;
+  min-width: 260px;
   position: sticky; left: 0;
   background: #F8FAFC; z-index: 2;
 }
@@ -604,6 +612,7 @@ tr.row-no-preiscrizione .player-name { color: var(--red); }
 .table-quote tbody td.col-name {
   position: sticky; left: 0;
   background: var(--white); z-index: 1; font-weight: 600;
+  white-space: nowrap;
 }
 .table-quote tbody tr:hover td.col-name { background: #FFFBEB; }
 
