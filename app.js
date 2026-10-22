@@ -136,6 +136,11 @@ function getFiltered() {
     }
     if (va < vb) return sortAsc ? -1 : 1;
     if (va > vb) return sortAsc ?  1 : -1;
+    if (sortKey === 'cognome') { // stesso cognome: ordina per nome
+      const na = a.nome || '', nb = b.nome || '';
+      if (na < nb) return sortAsc ? -1 : 1;
+      if (na > nb) return sortAsc ?  1 : -1;
+    }
     return 0;
   });
 }

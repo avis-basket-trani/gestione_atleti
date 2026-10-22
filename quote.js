@@ -267,15 +267,17 @@ function renderTable() {
   });
 
   athletes.sort((a, b) => {
-    let va, vb;
-    if      (sortKey === 'cognome')    { va = a.cognome || a.nomeRagazzo; vb = b.cognome || b.nomeRagazzo; }
+    let va, vb, cognomeSort = false;
+    if      (sortKey === 'cognome')    { va = a.cognome || a.nomeRagazzo; vb = b.cognome || b.nomeRagazzo; cognomeSort = true; }
     else if (sortKey === 'totale')     { va = a.totale;      vb = b.totale; }
     else if (sortKey === 'iscrizione') { va = a.iscrizionePagata ? 1 : 0; vb = b.iscrizionePagata ? 1 : 0; }
     else if (sortKey === 'gruppo')     { va = a.gruppo || ''; vb = b.gruppo || ''; }
-    else                               { va = a.cognome || a.nomeRagazzo; vb = b.cognome || b.nomeRagazzo; }
+    else                               { va = a.cognome || a.nomeRagazzo; vb = b.cognome || b.nomeRagazzo; cognomeSort = true; }
     if (typeof va === 'string') {
       const c = va.localeCompare(vb, 'it');
-      return sortAsc ? c : -c;
+      if (c !== 0 || !cognomeSort) return sortAsc ? c : -c;
+      const c2 = (a.nome || '').localeCompare(b.nome || '', 'it'); // stesso cognome: ordina per nome
+      return sortAsc ? c2 : -c2;
     }
     return sortAsc ? va - vb : vb - va;
   });
@@ -731,6 +733,8 @@ function apriFinalizzaRicevuta(id, tipo) {
   _finTipo = tipo;
   document.getElementById('fin_numero').value = '';
   document.getElementById('fin_data').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('fin_importo').style.display = 'none';
+  document.getElementById('fin_importo').value = '';
 
   const ultima = loadUltimaRicevuta();
   document.getElementById('fin_reminder').textContent = ultima
@@ -739,6 +743,22 @@ function apriFinalizzaRicevuta(id, tipo) {
 
   document.getElementById('overlayFinalizza').classList.add('open');
   setTimeout(() => document.getElementById('fin_numero').focus(), 100);
+}
+
+/* Mostra il campo per sovrascrivere l'importo stampato in ricevuta (non
+   tocca i pagamenti registrati, solo cosa viene scritto sul PDF). Se non
+   viene cliccato, o il campo resta vuoto, l'importo resta quello calcolato
+   automaticamente come prima. */
+function toggleImportoPersonalizzato() {
+  const input = document.getElementById('fin_importo');
+  const show  = input.style.display === 'none';
+  input.style.display = show ? '' : 'none';
+  if (show && !input.value) {
+    const matchFreq = _finTipo === 'iscrizione' ? (f => f === 'Iscrizione') : (f => f !== 'Iscrizione');
+    const dati = _calcolaDatiRicevuta(_finId, matchFreq);
+    if (!dati.errore) input.value = dati.importo.toFixed(2);
+    input.focus();
+  }
 }
 
 function closeFinalizzaModal() {
@@ -761,6 +781,11 @@ function confermaFinalizzaRicevuta(e) {
 
   const dati = _calcolaDatiRicevuta(_finId, matchFreq);
   if (dati.errore) { toast(dati.errore, 'error'); return; }
+
+  const importoInput = document.getElementById('fin_importo');
+  if (importoInput.style.display !== 'none' && importoInput.value !== '') {
+    dati.importo = parseFloat(importoInput.value) || 0; // importo personalizzato, solo per il PDF
+  }
 
   // Le annate 2012-2014 giocano nel corso Basket (non Minibasket): la
   // dicitura in ricevuta deve rifletterlo.

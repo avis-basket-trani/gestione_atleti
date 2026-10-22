@@ -240,6 +240,10 @@
             <input type="date" id="fin_data" required>
           </div>
           <p class="fin-reminder" id="fin_reminder"></p>
+          <div class="form-group full">
+            <button type="button" class="btn-link-importo" onclick="toggleImportoPersonalizzato()">Personalizza importo ricevuta</button>
+            <input type="number" id="fin_importo" class="fin-importo-input" step="0.01" min="0" placeholder="Importo personalizzato (€)" style="display:none">
+          </div>
         </div>
       </form>
     </div>
