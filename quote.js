@@ -70,6 +70,11 @@ function buildAthleteData() {
       iscrizionePagata:       false,
       iscrizioneTotale:       0,
       ultimoPagamentoIscrizione: null,
+      accontoVersato:         0,
+      accontoTotale:          0,
+      _accontoUltimaData:     null,
+      metaQuotaInfo:          null,
+      _metaQuotaUltimaData:   null,
     });
   }
 
@@ -77,13 +82,37 @@ function buildAthleteData() {
     if (!r.frequenza || !r.dataPagamento) return;
     entry.hasPayments = true;
 
+    // Pagamento marcato come "Acconto": si somma a quelli già versati per lo
+    // stesso atleta, mostrando sotto il nome quanto manca rispetto alla
+    // quota intera della frequenza scelta nell'ultimo acconto registrato.
+    if (r.tipoImporto === 'acconto') {
+      const versato = r.importoPersonalizzato ?? FREQ_IMPORTO[r.frequenza] ?? 0;
+      entry.accontoVersato = parseFloat((entry.accontoVersato + versato).toFixed(2));
+      if (!entry._accontoUltimaData || r.dataPagamento > entry._accontoUltimaData) {
+        entry._accontoUltimaData = r.dataPagamento;
+        entry.accontoTotale = FREQ_IMPORTO[r.frequenza] || 0;
+      }
+    }
+
+    // Pagamento marcato come "Metà quota": non si accumula (ogni pagamento
+    // resta a sé), si mostra solo l'ultimo registrato sotto il nome.
+    if (r.tipoImporto === 'meta') {
+      if (!entry._metaQuotaUltimaData || r.dataPagamento > entry._metaQuotaUltimaData) {
+        entry._metaQuotaUltimaData = r.dataPagamento;
+        entry.metaQuotaInfo = {
+          importo: r.importoPersonalizzato ?? FREQ_IMPORTO[r.frequenza] ?? 0,
+          totale:  FREQ_IMPORTO[r.frequenza] || 0,
+        };
+      }
+    }
+
     // L'iscrizione è un pagamento a sé stante: ha la sua colonna dedicata e
     // non entra mai nella distribuzione delle 9 mensilità né nell'"ultimo
     // pagamento" mostrato nelle colonne Frequenza/Periodo/Tipo/Data.
     if (r.frequenza === 'Iscrizione') {
       entry.iscrizionePagata = true;
       const isGratuito = r.tipoPagamento === 'Gratuito';
-      const importo = isGratuito ? 0 : (FREQ_IMPORTO.Iscrizione || 0);
+      const importo = isGratuito ? 0 : (r.importoPersonalizzato ?? FREQ_IMPORTO.Iscrizione ?? 0);
       entry.iscrizioneTotale = parseFloat((entry.iscrizioneTotale + importo).toFixed(2));
       if (!entry.ultimoPagamentoIscrizione || r.dataPagamento > entry.ultimoPagamentoIscrizione.dataPagamento) {
         entry.ultimoPagamentoIscrizione = {
@@ -99,7 +128,7 @@ function buildAthleteData() {
     const meseIdx = (r.meseRiferimento !== null && r.meseRiferimento !== undefined)
       ? r.meseRiferimento : undefined;
     const isGratuito = r.tipoPagamento === 'Gratuito';
-    const dist = calcDistribuzione(r.frequenza, r.dataPagamento, meseIdx, isGratuito);
+    const dist = calcDistribuzione(r.frequenza, r.dataPagamento, meseIdx, isGratuito, r.importoPersonalizzato);
     MESI_KEYS.forEach(k => {
       entry.mesi[k] = parseFloat(((entry.mesi[k] || 0) + (dist[k] || 0)).toFixed(2));
     });
@@ -132,27 +161,35 @@ function getMeseIdx(dateStr) {
   return idx >= 0 ? idx : 0;
 }
 
-function calcDistribuzione(frequenza, dateStr, meseIdxOverride, isGratuito) {
+/* "importoOverride" sostituisce l'importo fisso della frequenza (usato per
+   i pagamenti con importo personalizzato): la ripartizione sui mesi resta
+   identica, cambia solo la cifra totale da ripartire. */
+function calcDistribuzione(frequenza, dateStr, meseIdxOverride, isGratuito, importoOverride) {
   const mesi = blankMesi();
   if (isGratuito) return mesi;
-  const si = meseIdxOverride !== undefined ? meseIdxOverride : getMeseIdx(dateStr);
+  const si  = meseIdxOverride !== undefined ? meseIdxOverride : getMeseIdx(dateStr);
+  const tot = (importoOverride !== undefined && importoOverride !== null && importoOverride !== '')
+    ? parseFloat(importoOverride) : null;
   switch (frequenza) {
-    case 'Lezione':    mesi[MESI_KEYS[si]] = 5;  break;
-    case 'Metà mese': mesi[MESI_KEYS[si]] = 20; break;
-    case 'Mensile':   mesi[MESI_KEYS[si]] = 35; break;
-    case 'Trimestrale':
+    case 'Lezione':    mesi[MESI_KEYS[si]] = tot ?? 5;  break;
+    case 'Metà mese': mesi[MESI_KEYS[si]] = tot ?? 20; break;
+    case 'Mensile':   mesi[MESI_KEYS[si]] = tot ?? 35; break;
+    case 'Trimestrale': {
+      const t = tot ?? 95;
       for (let i = 0; i < 3; i++) {
         if (si + i < MESI_KEYS.length) {
           const val = i < 2
-            ? parseFloat((95 / 3).toFixed(2))
-            : parseFloat((95 - 2 * parseFloat((95 / 3).toFixed(2))).toFixed(2));
+            ? parseFloat((t / 3).toFixed(2))
+            : parseFloat((t - 2 * parseFloat((t / 3).toFixed(2))).toFixed(2));
           mesi[MESI_KEYS[si + i]] = val;
         }
       }
       break;
+    }
     case 'Stagionale': {
-      const base = parseFloat((270 / MESI_KEYS.length).toFixed(2));
-      const last = parseFloat((270 - base * (MESI_KEYS.length - 1)).toFixed(2));
+      const t    = tot ?? 270;
+      const base = parseFloat((t / MESI_KEYS.length).toFixed(2));
+      const last = parseFloat((t - base * (MESI_KEYS.length - 1)).toFixed(2));
       MESI_KEYS.forEach((m, i) => { mesi[m] = i < MESI_KEYS.length - 1 ? base : last; });
       break;
     }
@@ -299,8 +336,16 @@ function renderTable() {
   const colTotals   = blankMesi();
   let totIscrizioni = 0, totGrand = 0;
 
-  tbody.innerHTML = athletes.map(({ id, nomeRagazzo, cognome, nome, gruppo, iscrizionePagata, iscrizioneTotale, mesi, totale, hasPayments, ultimoPagamento }) => {
+  tbody.innerHTML = athletes.map(({ id, nomeRagazzo, cognome, nome, gruppo, iscrizionePagata, iscrizioneTotale, mesi, totale, hasPayments, ultimoPagamento, accontoVersato, accontoTotale, metaQuotaInfo }) => {
     const etichetta = (cognome || nome) ? `${cognome} ${nome}`.trim() : nomeRagazzo;
+    const accontoSuperato = accontoVersato > accontoTotale;
+    const accontoHtml = accontoVersato > 0
+      ? `<span class="acconto-note${accontoSuperato ? ' warning' : ''}">Ha versato €${accontoVersato.toFixed(2).replace('.', ',')} di acconto su €${accontoTotale.toFixed(2).replace('.', ',')} totale${accontoSuperato ? ' — supera la quota piena' : ''}</span>`
+      : '';
+    const metaSuperato = !!metaQuotaInfo && metaQuotaInfo.importo > metaQuotaInfo.totale;
+    const metaHtml = metaQuotaInfo
+      ? `<span class="acconto-note${metaSuperato ? ' warning' : ''}">Metà quota: €${metaQuotaInfo.importo.toFixed(2).replace('.', ',')} su €${metaQuotaInfo.totale.toFixed(2).replace('.', ',')} totale${metaSuperato ? ' — supera la quota piena' : ''}</span>`
+      : '';
     totIscrizioni += (iscrizioneTotale || 0);
     MESI_KEYS.forEach(k => colTotals[k] += (mesi[k] || 0));
     totGrand += totale;
@@ -324,6 +369,8 @@ function renderTable() {
         </button>
         <button class="btn-edit-athlete" onclick="apriFinalizzaRicevuta('${escHtml(id)}','quote')" title="Genera ricevuta quote (PDF)">🧾</button>` : ''}
         ${iscrizionePagata ? `<button class="btn-edit-athlete" onclick="apriFinalizzaRicevuta('${escHtml(id)}','iscrizione')" title="Genera ricevuta iscrizione (PDF)">🎫</button>` : ''}
+        ${accontoHtml}
+        ${metaHtml}
       </td>
       <td data-label="Gruppo">${gruppoHtml}</td>
       <td data-label="Frequenza">${freqHtml}</td>
@@ -372,6 +419,11 @@ function openModal() {
   document.getElementById('f_dataPagamento').value = new Date().toISOString().slice(0, 10);
   document.getElementById('previewWrap').style.display  = 'none';
   document.getElementById('meseRifWrap').style.display  = 'none';
+  document.getElementById('importoPersonalizzatoWrap').style.display = 'none';
+  document.getElementById('personalizzaImportoBtnWrap').style.display = '';
+  document.getElementById('f_importoPersonalizzato').value = '';
+  document.getElementById('f_tipoImporto').value = 'meta';
+  document.getElementById('importoInfo').style.display = 'none';
   // default mese riferimento = mese scolastico corrente
   const todayM    = new Date().getMonth();
   const schoolIdx = MESI_JS.indexOf(todayM);
@@ -442,6 +494,68 @@ document.addEventListener('click', e => {
   }
 });
 
+/* ─── IMPORTO PERSONALIZZATO (popup Aggiungi Pagamento) ───
+   Permette di sovrascrivere l'importo fisso della frequenza scelta: la
+   cifra inserita viene comunque ripartita sui mesi secondo la stessa
+   logica (calcDistribuzione), la categoria resta quella della tendina.
+   "Acconto" in più accumula, sotto il nome dell'atleta, quanto versato
+   rispetto alla quota intera; "Metà quota" è solo un importo diverso,
+   senza alcun riepilogo aggiuntivo. */
+function _importoPersonalizzatoAttivo() {
+  const wrap = document.getElementById('importoPersonalizzatoWrap');
+  return wrap && wrap.style.display !== 'none';
+}
+
+/* Somma degli acconti già registrati per lo stesso atleta e la stessa
+   frequenza, usata per avvisare se il nuovo acconto supera la quota piena. */
+function _accontoGiaVersato(athleteId, frequenza) {
+  if (!athleteId) return 0;
+  return loadMain()
+    .filter(r => r.athleteId === athleteId && r.frequenza === frequenza && r.tipoImporto === 'acconto')
+    .reduce((s, r) => s + (r.importoPersonalizzato ?? FREQ_IMPORTO[frequenza] ?? 0), 0);
+}
+
+/* Mostra, sotto i campi importo/tipo, se si tratta di un acconto o di una
+   metà quota e se la cifra (già versato incluso, per l'acconto) supera la
+   quota piena della frequenza scelta. */
+function _aggiornaImportoInfo() {
+  const info = document.getElementById('importoInfo');
+  if (!_importoPersonalizzatoAttivo()) { info.style.display = 'none'; return; }
+
+  const frequenza   = document.getElementById('f_frequenza').value;
+  const tipoImporto = document.getElementById('f_tipoImporto').value;
+  const importoRaw  = document.getElementById('f_importoPersonalizzato').value;
+  if (importoRaw === '' || !frequenza) { info.style.display = 'none'; return; }
+
+  const nuovoImporto = parseFloat(importoRaw) || 0;
+  const totaleRif    = FREQ_IMPORTO[frequenza] || 0;
+  const athleteId    = document.getElementById('f_nomeRagazzo').value;
+  const label        = tipoImporto === 'acconto' ? 'Acconto' : 'Metà quota';
+  const proiettato   = tipoImporto === 'acconto' ? _accontoGiaVersato(athleteId, frequenza) + nuovoImporto : nuovoImporto;
+  const superato     = totaleRif > 0 && proiettato > totaleRif;
+
+  info.className   = 'importo-info' + (superato ? ' warning' : '');
+  info.textContent = `${label}: €${proiettato.toFixed(2).replace('.', ',')} su €${totaleRif.toFixed(2).replace('.', ',')} totale`
+    + (superato ? ' — supera la quota piena' : '');
+  info.style.display = '';
+}
+
+function toggleImportoPersonalizzatoPagamento() {
+  const wrap  = document.getElementById('importoPersonalizzatoWrap');
+  const input = document.getElementById('f_importoPersonalizzato');
+  const show  = wrap.style.display === 'none';
+  wrap.style.display = show ? '' : 'none';
+  if (show) {
+    const frequenza = document.getElementById('f_frequenza').value;
+    if (!input.value && FREQ_IMPORTO[frequenza] !== undefined) input.value = FREQ_IMPORTO[frequenza].toFixed(2);
+    input.focus();
+  } else {
+    input.value = '';
+    document.getElementById('f_tipoImporto').value = 'meta';
+  }
+  updatePreview();
+}
+
 /* ─── PREVIEW ─── */
 function updatePreview() {
   const frequenza = document.getElementById('f_frequenza').value;
@@ -454,6 +568,19 @@ function updatePreview() {
   const needsMese = ['Mensile', 'Metà mese'].includes(frequenza);
   meseWrap.style.display = needsMese ? '' : 'none';
 
+  // L'importo personalizzato/acconto non si applica all'Iscrizione.
+  const importoBtnWrap = document.getElementById('personalizzaImportoBtnWrap');
+  if (frequenza === 'Iscrizione') {
+    importoBtnWrap.style.display = 'none';
+    document.getElementById('importoPersonalizzatoWrap').style.display = 'none';
+    document.getElementById('f_importoPersonalizzato').value = '';
+    document.getElementById('f_tipoImporto').value = 'meta';
+  } else {
+    importoBtnWrap.style.display = '';
+  }
+
+  _aggiornaImportoInfo();
+
   if (!frequenza) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
 
@@ -462,9 +589,10 @@ function updatePreview() {
     meseIdxOverride = parseInt(document.getElementById('f_meseRiferimento').value);
   }
 
-  const isGratuito = tipo === 'Gratuito';
-  const dist    = calcDistribuzione(frequenza, dateStr, meseIdxOverride, isGratuito);
-  const importo = isGratuito ? 0 : FREQ_IMPORTO[frequenza];
+  const isGratuito    = tipo === 'Gratuito';
+  const importoCustom = _importoPersonalizzatoAttivo() ? document.getElementById('f_importoPersonalizzato').value : undefined;
+  const dist    = calcDistribuzione(frequenza, dateStr, meseIdxOverride, isGratuito, importoCustom);
+  const importo = isGratuito ? 0 : (importoCustom !== undefined && importoCustom !== '' ? parseFloat(importoCustom) : FREQ_IMPORTO[frequenza]);
 
   preview.innerHTML = MESI_KEYS.map((k, i) => {
     const val = dist[k];
@@ -503,7 +631,11 @@ function savePayment(e) {
   const meseIdx = meseRiferimento !== null ? meseRiferimento : undefined;
   const periodo = getPeriodo(frequenza, dateStr, meseIdx);
 
-  main.unshift({
+  const usaImportoCustom = _importoPersonalizzatoAttivo() && document.getElementById('f_importoPersonalizzato').value !== '';
+  const importoPersonalizzato = usaImportoCustom ? parseFloat(document.getElementById('f_importoPersonalizzato').value) || 0 : undefined;
+  const tipoImporto = usaImportoCustom ? document.getElementById('f_tipoImporto').value : undefined; // 'meta' | 'acconto'
+
+  const record = {
     id:               uid(),
     athleteId,
     dataPagamento:    dateStr,
@@ -511,7 +643,10 @@ function savePayment(e) {
     meseRiferimento,
     periodo,
     tipoPagamento:    tipo,
-  });
+  };
+  if (importoPersonalizzato !== undefined) record.importoPersonalizzato = importoPersonalizzato;
+  if (tipoImporto) record.tipoImporto = tipoImporto; // 'meta' | 'acconto'
+  main.unshift(record);
 
   saveMain(main);
 
@@ -520,18 +655,18 @@ function savePayment(e) {
   toast(`Pagamento di ${athlete.nomeRagazzo} salvato ✓`, 'success');
 
   if (tipo === 'Contanti') {
-    if (frequenza === 'Iscrizione') openWhatsAppIscrizione(athlete, dateStr, tipo);
-    else openWhatsApp(athlete, frequenza, dateStr, tipo, periodo);
+    if (frequenza === 'Iscrizione') openWhatsAppIscrizione(athlete, dateStr, tipo, importoPersonalizzato);
+    else openWhatsApp(athlete, frequenza, dateStr, tipo, periodo, importoPersonalizzato);
   }
 }
 
-function openWhatsApp(athlete, frequenza, dateStr, tipo, periodo) {
+function openWhatsApp(athlete, frequenza, dateStr, tipo, periodo, importoCustom) {
   if (!athlete.telefono) { toast('Nessun numero di telefono registrato per questo atleta', 'error'); return; }
   let phone = athlete.telefono.replace(/\D/g, '');
   if (phone.startsWith('0')) phone = phone.slice(1);
   if (!phone.startsWith('39')) phone = '39' + phone;
   const isGratuito = tipo === 'Gratuito';
-  const importo  = isGratuito ? 0 : FREQ_IMPORTO[frequenza];
+  const importo  = isGratuito ? 0 : (importoCustom ?? FREQ_IMPORTO[frequenza]);
   const dataFmt  = dateStr ? new Date(dateStr + 'T00:00:00').toLocaleDateString('it-IT') : '—';
   const genitore = athlete.nomeGenitore || 'Genitore';
   const msg =
@@ -548,18 +683,19 @@ function openWhatsApp(athlete, frequenza, dateStr, tipo, periodo) {
 /* Messaggio dedicato per il pagamento dell'iscrizione: separato da quello
    delle quote, non essendo più un'aggiunta ad un altro pagamento ma un
    pagamento a sé stante (frequenza "Iscrizione"). */
-function openWhatsAppIscrizione(athlete, dateStr, tipo) {
+function openWhatsAppIscrizione(athlete, dateStr, tipo, importoCustom) {
   if (!athlete.telefono) { toast('Nessun numero di telefono registrato per questo atleta', 'error'); return; }
   let phone = athlete.telefono.replace(/\D/g, '');
   if (phone.startsWith('0')) phone = phone.slice(1);
   if (!phone.startsWith('39')) phone = '39' + phone;
   const dataFmt  = dateStr ? new Date(dateStr + 'T00:00:00').toLocaleDateString('it-IT') : '—';
   const genitore = athlete.nomeGenitore || 'Genitore';
+  const importo  = importoCustom ?? ISCRIZIONE_QUOTA;
   const msg =
     `Gentile ${genitore},\n\n` +
     `abbiamo registrato il pagamento della quota di iscrizione per *${athlete.nomeRagazzo}*:\n\n` +
     `📅 Data: ${dataFmt}\n` +
-    `🎫 Iscrizione — €${ISCRIZIONE_QUOTA}\n` +
+    `🎫 Iscrizione — €${importo}\n` +
     `💳 Tipo: ${tipo || '—'}\n\n` +
     `Grazie per la fiducia! 🏀`;
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -610,7 +746,7 @@ function _calcolaDatiRicevuta(id, matchFreq) {
       .sort((a, b) => a.dataPagamento.localeCompare(b.dataPagamento));
     if (!batch.length) return { errore: 'Nessun nuovo pagamento in contanti da inserire: è già tutto in una ricevuta precedente' };
 
-    importo = parseFloat(batch.reduce((s, p) => s + (FREQ_IMPORTO[p.frequenza] || 0), 0).toFixed(2));
+    importo = parseFloat(batch.reduce((s, p) => s + (p.importoPersonalizzato ?? FREQ_IMPORTO[p.frequenza] ?? 0), 0).toFixed(2));
 
     const freqSet = [...new Set(batch.map(p => p.frequenza))];
     frequenzaLabel = freqSet.join(', ');
@@ -627,7 +763,7 @@ function _calcolaDatiRicevuta(id, matchFreq) {
   } else {
     batch = [ultimo];
     const isGratuito = ultimo.tipoPagamento === 'Gratuito';
-    importo        = isGratuito ? 0 : (FREQ_IMPORTO[ultimo.frequenza] || 0);
+    importo        = isGratuito ? 0 : (ultimo.importoPersonalizzato ?? FREQ_IMPORTO[ultimo.frequenza] ?? 0);
     frequenzaLabel = ultimo.frequenza;
     periodoLabel   = ultimo.periodo || '';
     tipoLabel      = ultimo.tipoPagamento || '';
@@ -733,8 +869,6 @@ function apriFinalizzaRicevuta(id, tipo) {
   _finTipo = tipo;
   document.getElementById('fin_numero').value = '';
   document.getElementById('fin_data').value = new Date().toISOString().slice(0, 10);
-  document.getElementById('fin_importo').style.display = 'none';
-  document.getElementById('fin_importo').value = '';
 
   const ultima = loadUltimaRicevuta();
   document.getElementById('fin_reminder').textContent = ultima
@@ -743,22 +877,6 @@ function apriFinalizzaRicevuta(id, tipo) {
 
   document.getElementById('overlayFinalizza').classList.add('open');
   setTimeout(() => document.getElementById('fin_numero').focus(), 100);
-}
-
-/* Mostra il campo per sovrascrivere l'importo stampato in ricevuta (non
-   tocca i pagamenti registrati, solo cosa viene scritto sul PDF). Se non
-   viene cliccato, o il campo resta vuoto, l'importo resta quello calcolato
-   automaticamente come prima. */
-function toggleImportoPersonalizzato() {
-  const input = document.getElementById('fin_importo');
-  const show  = input.style.display === 'none';
-  input.style.display = show ? '' : 'none';
-  if (show && !input.value) {
-    const matchFreq = _finTipo === 'iscrizione' ? (f => f === 'Iscrizione') : (f => f !== 'Iscrizione');
-    const dati = _calcolaDatiRicevuta(_finId, matchFreq);
-    if (!dati.errore) input.value = dati.importo.toFixed(2);
-    input.focus();
-  }
 }
 
 function closeFinalizzaModal() {
@@ -781,11 +899,6 @@ function confermaFinalizzaRicevuta(e) {
 
   const dati = _calcolaDatiRicevuta(_finId, matchFreq);
   if (dati.errore) { toast(dati.errore, 'error'); return; }
-
-  const importoInput = document.getElementById('fin_importo');
-  if (importoInput.style.display !== 'none' && importoInput.value !== '') {
-    dati.importo = parseFloat(importoInput.value) || 0; // importo personalizzato, solo per il PDF
-  }
 
   // Le annate 2012-2014 giocano nel corso Basket (non Minibasket): la
   // dicitura in ricevuta deve rifletterlo.
@@ -909,8 +1022,9 @@ function renderAthletePayments() {
       ? new Date(p.dataPagamento + 'T00:00:00').toLocaleDateString('it-IT')
       : '—';
     const isGratuito = p.tipoPagamento === 'Gratuito';
-    const importo = isGratuito ? 0 : FREQ_IMPORTO[p.frequenza];
-    const importoLabel = isGratuito ? ' — Gratuito' : (importo ? ` — €${importo}` : '');
+    const importo = isGratuito ? 0 : (p.importoPersonalizzato ?? FREQ_IMPORTO[p.frequenza]);
+    const importoTag = p.tipoImporto === 'acconto' ? ' (Acconto)' : p.tipoImporto === 'meta' ? ' (Metà quota)' : '';
+    const importoLabel = isGratuito ? ' — Gratuito' : (importo ? ` — €${importo}${importoTag}` : '');
 
     if (_epId === p.id) {
       return `<div class="mp-item mp-editing">

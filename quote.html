@@ -182,6 +182,26 @@
               <option value="Gratuito">Gratuito — €0</option>
             </select>
           </div>
+          <div class="form-group" id="personalizzaImportoBtnWrap">
+            <label>&nbsp;</label>
+            <button type="button" class="btn-link-importo" onclick="toggleImportoPersonalizzatoPagamento()">Personalizza importo</button>
+          </div>
+          <div class="form-group full" id="importoPersonalizzatoWrap" style="display:none">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Importo (€)</label>
+                <input type="number" id="f_importoPersonalizzato" step="0.01" min="0" oninput="updatePreview()">
+              </div>
+              <div class="form-group">
+                <label>Tipo</label>
+                <select id="f_tipoImporto" onchange="updatePreview()">
+                  <option value="meta">Metà quota</option>
+                  <option value="acconto">Acconto</option>
+                </select>
+              </div>
+            </div>
+            <p id="importoInfo" class="importo-info" style="display:none"></p>
+          </div>
           <div class="form-group full" id="previewWrap" style="display:none">
             <label>Distribuzione mensile</label>
             <div id="mesiPreview" class="mesi-preview"></div>
@@ -240,10 +260,6 @@
             <input type="date" id="fin_data" required>
           </div>
           <p class="fin-reminder" id="fin_reminder"></p>
-          <div class="form-group full">
-            <button type="button" class="btn-link-importo" onclick="toggleImportoPersonalizzato()">Personalizza importo ricevuta</button>
-            <input type="number" id="fin_importo" class="fin-importo-input" step="0.01" min="0" placeholder="Importo personalizzato (€)" style="display:none">
-          </div>
         </div>
       </form>
     </div>

@@ -454,7 +454,23 @@ tr.row-no-preiscrizione .player-name { color: var(--red); }
   transition: all .2s;
 }
 .btn-link-importo:hover { background: var(--yellow); border-color: var(--yellow); color: var(--black); }
-.fin-importo-input { margin-top: 10px; }
+
+.acconto-note {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--slate);
+  font-style: italic;
+  margin-top: 2px;
+}
+.acconto-note.warning { color: var(--red); font-weight: 600; font-style: normal; }
+
+.importo-info {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  color: var(--slate);
+}
+.importo-info.warning { color: var(--red); font-weight: 600; }
 
 .form-group label {
   font-size: 0.77rem;
